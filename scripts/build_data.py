@@ -15,11 +15,13 @@ Definitions
   no_show    an opportunity in "No Show" (EOC: client ghosted)
   no_eoc     the call time has passed and the opportunity still says "Booked Meeting": the EOC was never filed
 
-Env: CLOSE_API_KEY, GHL_API_KEY, GHL_LOCATION_ID.  Run: python scripts/build_data.py
+Env: CLOSE_API_KEY, GHL_API_KEY, GHL_LOCATION_ID (Vercel env vars, or a local .env, see .env.example).
+Run: python scripts/build_data.py  (Vercel runs it as the build command on every deploy)
 Records whose outcome is settled (cancelled, or showed / no-show) are reused from the previous file, so a run only
 asks Close and GHL about bookings that can still change.
 """
 import base64
+import concurrent.futures as cf
 import hashlib
 import datetime as dt
 import json
@@ -49,6 +51,19 @@ LNS_CONFIRMATION = "cf_4zkkpwIWyyfZMUcOBOl7X7kjSNGj1l1MnPZjLaDmcxZ"
 SHOWED = {"AP Follow-up", "DC Follow-up", "AI Partner Won", "DigitalCollege Won", "Deposit", "Lost", "Disqualified"}
 YES = re.compile(r"^\s*(yes|yeah|yep|yup|ya|yea|sure|confirmed?|i'?ll be there|see you|sounds good|definitely|absolutely|si)\b", re.I)
 NOT_YES = re.compile(r"reschedul|can'?t|cannot|cancel|not able|another time|different time|move it", re.I)
+
+
+def _load_dotenv():
+    """Local runs: read .env next to the repo root (Vercel passes real env vars, so there is none there)."""
+    path = os.path.join(ROOT, ".env")
+    if os.path.exists(path):
+        for line in open(path, encoding="utf8"):
+            k, sep, v = line.strip().partition("=")
+            if sep and k and not k.startswith("#"):
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
 
 
 def env(name):
@@ -120,18 +135,16 @@ def main():
         for e in ghl("/calendars/events", {"locationId": loc, "calendarId": cid, "startTime": lo, "endTime": hi}).get("events", []):
             if e.get("dateAdded") and iso(e["dateAdded"]) >= base:
                 events.append((e, tier))
-    out, asked = [], 0
-    for e, tier in sorted(events, key=lambda x: x[0]["dateAdded"]):
+    def one(item):
+        e, tier = item
         booked, call = iso(e["dateAdded"]), iso(e["startTime"])
         cancelled = (e.get("appointmentStatus") or "").lower() in ("cancelled", "invalid")
-        rid = hashlib.sha256(e["id"].encode()).hexdigest()[:12]  # GHL ids stay private: the file is public
+        rid = hashlib.sha256(e["id"].encode()).hexdigest()[:12]  # GHL ids stay private: the page is public
         old = prev.get(rid)
         if old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled")):
-            out.append(old)
-            continue
+            return old, False
         rec = {"id": rid, "booked": booked.strftime("%Y-%m-%dT%H:%M:%SZ"), "call": call.strftime("%Y-%m-%dT%H:%M:%SZ"),
                "tier": tier, "confirmed": False, "outcome": "cancelled" if cancelled else "unknown", "in_close": False}
-        asked += 1
         contact = ghl(f"/contacts/{e['contactId']}", {}).get("contact", {}) if e.get("contactId") else {}
         email = (contact.get("email") or "").strip().lower()
         lead = close("/lead/", {"query": f'email:"{email}"', "_limit": 1,
@@ -145,8 +158,14 @@ def main():
                 rec["outcome"] = outcome_of(L["id"], call < now)
         elif not cancelled:
             rec["outcome"] = "not_in_close"
-        out.append(rec)
-        time.sleep(0.15)  # stay well under Close's rate limit
+        return rec, True
+
+    # 5 bookings at a time: fast enough for a Vercel build, gentle on Close's rate limit (429s are retried)
+    with cf.ThreadPoolExecutor(5) as ex:
+        results = list(ex.map(one, sorted(events, key=lambda x: x[0]["dateAdded"])))
+    out = [r for r, _ in results]
+    asked = sum(1 for _, a in results if a)
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "baseline": BASELINE, "lns_live": LNS_LIVE,
                "bookings": out}, open(OUT, "w", encoding="utf8"), indent=1)
     print(f"{len(out)} bookings ({asked} refreshed, {len(out) - asked} settled and reused) -> {OUT}")

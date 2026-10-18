@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "python3 scripts/build_data.py",
+  "outputDirectory": ".",
+  "crons": [{ "path": "/api/refresh", "schedule": "0 11 * * *" }],
+  "headers": [
+    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store" }] }
+  ]
+}
