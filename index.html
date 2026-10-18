@@ -774,7 +774,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   wire("fTier", "tier");
   let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.data && render(), 120); });
 
-  $("foot").append(el("span", {}, "Sources: GHL appointments · Close leads & opportunities (closers' EOC form)"), el("span", {}, "Refreshed daily by GitHub Actions · no names, emails or phone numbers stored"));
+  $("foot").append(el("span", {}, "Sources: GHL appointments · Close leads & opportunities (closers' EOC form)"), el("span", {}, "Rebuilt daily at 7am ET on Vercel · no names, emails or phone numbers stored"));
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
