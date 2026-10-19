@@ -275,10 +275,14 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   // UTC instant of 00:00 US Eastern on a calendar date, correct on both sides of a daylight-saving change
   const etMidnight = (y, m, d) => {
     const probe = new Date(Date.UTC(y, m - 1, d, 12));
-    const off = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" })
-      .formatToParts(probe).find((x) => x.type === "timeZoneName").value;            // e.g. "GMT-04:00"
-    const mt = off.match(/([+-])(\d{2}):?(\d{2})/);
-    const mins = mt ? (mt[1] === "-" ? -1 : 1) * (+mt[2] * 60 + +mt[3]) : -300;
+    let mins;
+    try {
+      const off = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" })
+        .formatToParts(probe).find((x) => x.type === "timeZoneName").value;          // e.g. "GMT-04:00"
+      const mt = off.match(/([+-])(\d{2}):?(\d{2})/);
+      mins = mt ? (mt[1] === "-" ? -1 : 1) * (+mt[2] * 60 + +mt[3]) : null;
+    } catch { mins = null; }                                                         // older Safari / Chromium
+    if (mins == null) mins = (localParts(probe.toISOString(), "America/New_York").h - 12) * 60;   // ET hour at 12:00 UTC
     return new Date(Date.UTC(y, m - 1, d) - mins * 60000);
   };
   // Monday 00:00 ET of the week containing `date`, shifted by `weeks`

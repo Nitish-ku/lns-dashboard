@@ -29,7 +29,9 @@ if (process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN) {
         try {
           const r = await get(b.url, { access: "private" });
           if (!r) return null;  // deleted between list() and get(): nothing to count
-          return await new Response(r.stream).json();
+          const text = await new Response(r.stream).text();
+          try { return JSON.parse(text); }
+          catch { console.error(`skipped unreadable event (not JSON): ${b.pathname}`); return null; }  // never retry
         } catch (err) {
           if (attempt >= 4) { console.error(`blob read failed after 4 tries: ${b.pathname}: ${err.message}`); process.exit(1); }
           await new Promise((ok) => setTimeout(ok, 1000 * 2 ** attempt));

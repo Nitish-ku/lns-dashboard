@@ -8,7 +8,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 const CHOICE_TYPES = new Set(["single_choice", "multiple_choice", "multi_choice", "dropdown", "select", "yes_no", "boolean", "rating", "scale", "opinion_scale", "multi_select", "checkbox", "checkboxes", "radio", "picture_choice"]);
 const TEXT_TYPES = new Set(["short_text", "long_text", "text", "textarea", "paragraph"]);
-const LOOKS_PERSONAL = /@|\+?\d[\d\s().-]{6,}\d|https?:\/\/|www\./i;   // email, phone number, link
+const LINKISH = /@|https?:\/\/|www\./i;                                   // email or link
+const RANGE = /^\s*\$?[\d.,]+\s*[kKmM]?\s*[-\u2013to]+\s*\$?[\d.,]+\s*[kKmM+]?\s*$/;    // "10000 - 50000", "2024 - 2025"
+// looks personal: an email/link, an "Other: ..." write-in, or a phone-like run of 9+ digits that isn't a number range
+const looksPersonal = (s) => LINKISH.test(s) || /^\s*other\b/i.test(s) || ((s.match(/\d/g) || []).length >= 9 && !RANGE.test(s));
 
 // typed answers: only their LENGTH is kept (SalesKick-style "0-10 characters" rows), never the words
 export function lengthBucket(v) {
@@ -20,7 +23,7 @@ export function lengthBucket(v) {
 function choiceValue(v) {
   if (v == null) return null;
   const s = String(v);
-  return s.length > 80 || LOOKS_PERSONAL.test(s) ? lengthBucket(s) : s;
+  return s.length > 80 || looksPersonal(s) ? lengthBucket(s) : s;
 }
 
 function clean(answer) {

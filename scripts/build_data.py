@@ -107,13 +107,17 @@ def iso(s):
     return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
 
 
-def outcome_of(lead_id, booked, call, now):
-    """The EOC outcome of THIS booking (critic #2): only opportunities created for it (from an hour before it was
-    booked) or updated after its call count; an old 'Lost' or 'No Show' from an earlier booking is ignored.
+def outcome_of(lead_id, booked, call, now, next_booked=None):
+    """The EOC outcome of THIS booking (critic #2): opportunities created for it (from an hour before it was booked
+    until the same person's NEXT booking) decide first; only if there are none, an older opportunity updated after
+    this call (and before the next booking) counts. An old 'Lost' / 'No Show' or a later booking's result is ignored.
     If several match, the most recently updated one decides."""
+    end = next_booked or dt.datetime.max.replace(tzinfo=dt.timezone.utc)
     opps = close("/opportunity/", {"lead_id": lead_id, "_fields": "status_label,date_created,date_updated"})["data"]
-    mine = [o for o in opps if iso(o["date_created"]) >= booked - dt.timedelta(hours=1)
-            or iso(o.get("date_updated") or o["date_created"]) >= call - dt.timedelta(hours=1)]
+    upd = lambda o: iso(o.get("date_updated") or o["date_created"])  # noqa: E731
+    mine = [o for o in opps if booked - dt.timedelta(hours=1) <= iso(o["date_created"]) < end]
+    if not mine:
+        mine = [o for o in opps if iso(o["date_created"]) < booked and call - dt.timedelta(hours=1) <= upd(o) < end]
     for o in sorted(mine, key=lambda o: o.get("date_updated") or o["date_created"], reverse=True):
         if o["status_label"] in SHOWED:
             return "showed"
@@ -137,8 +141,12 @@ def safe_tz(tz):
 
 
 def rid_of(raw):
-    """Anonymous record id, salted (critic #8): without the build's secret nobody can link a record to a GHL/ROAS id."""
-    return hashlib.sha256((os.environ.get("ROAS_WEBHOOK_SECRET", "") + "|" + raw).encode()).hexdigest()[:12]
+    """Anonymous record id, salted with ID_SALT (critic #8): without it nobody can link a record to a GHL/ROAS id.
+    Required on Vercel; a separate secret so rotating the webhook secret doesn't change every id."""
+    salt = os.environ.get("ID_SALT")
+    if not salt and os.environ.get("VERCEL"):
+        sys.exit("ID_SALT is not set: add it in Vercel (any long random string, never change it)")
+    return hashlib.sha256(((salt or "local") + "|" + raw).encode()).hexdigest()[:12]
 
 
 def texted_yes(lead_id, booked, call):
@@ -250,9 +258,16 @@ def main():
         for e in ghl("/calendars/events", {"locationId": loc, "calendarId": cid, "startTime": lo, "endTime": hi}).get("events", []):
             if e.get("dateAdded") and iso(e["dateAdded"]) >= base:
                 events.append((e, tier))
-    latest_by_contact = {}
+    # per person: their latest LIVE booking (confirmation fields describe it) and, for every booking, when that
+    # person booked next (bounds which Close opportunities belong to it)
+    latest_by_contact, next_booked, last_seen = {}, {}, {}
     for e, _ in sorted(events, key=lambda x: x[0]["dateAdded"]):
-        latest_by_contact[e.get("contactId")] = e["id"]
+        c = e.get("contactId")
+        if c in last_seen:
+            next_booked[last_seen[c]] = iso(e["dateAdded"])
+        last_seen[c] = e["id"]
+        if not is_cancel(e.get("appointmentStatus")):
+            latest_by_contact[c] = e["id"]
 
     def one(item):
         e, tier = item
@@ -278,7 +293,7 @@ def main():
                                                  or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED"))
                                     or texted_yes(L["id"], booked, call))
             if not cancelled:
-                rec["outcome"] = outcome_of(L["id"], booked, call, now)
+                rec["outcome"] = outcome_of(L["id"], booked, call, now, next_booked.get(e["id"]))
         elif not cancelled:
             rec["outcome"] = "not_in_close"
         return rec, True, e["id"]
