@@ -139,6 +139,7 @@ tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom:
 .notes p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
 footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; padding-bottom: 48px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
 .loading { opacity: .45; transition: opacity .2s; }
+#stale { margin-top: 16px; }
 
 @media (max-width: 560px) {
   .seg button { padding: 6px 9px; font-size: 12.5px; }
@@ -186,8 +187,8 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 
 <main class="wrap" id="app">
   <section aria-labelledby="h-kpi">
-    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kpi">The week at a glance</h2>
-      <p class="sec-dek">Black and white: a call counts as showed only when its EOC says so. Every other past call, including ones the team cancelled, counts as a no-show. Calls still to come are left out.</p></div>
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kpi">Applications in this period</h2>
+      <p class="sec-dek">Grouped by when the application came in, so a call booked for a later week counts once it has happened. Black and white: a call counts as showed only when its EOC says so; every other past call, including ones the team cancelled, is a no-show. Calls still to come are left out.</p></div>
     <div class="kpis six" id="kpis"></div>
   </section>
 
@@ -262,13 +263,35 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   /* time helpers (lead's own timezone where it matters) */
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const PARTS = { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", hourCycle: "h23", weekday: "short" };
   const localParts = (iso, tz) => {
-    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz || "America/New_York", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", hourCycle: "h23", weekday: "short" })
-      .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+    let f;
+    try { f = new Intl.DateTimeFormat("en-US", { ...PARTS, timeZone: tz || "America/New_York" }); }
+    catch { f = new Intl.DateTimeFormat("en-US", { ...PARTS, timeZone: "America/New_York" }); }   // non-IANA zone
+    const p = Object.fromEntries(f.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
     return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour, wd: p.weekday };
   };
   const dayNum = (p) => Date.UTC(p.y, p.m - 1, p.d) / 864e5;
-  const etMonday = (date) => { const p = localParts(date.toISOString(), "America/New_York"); const d = new Date(Date.UTC(p.y, p.m - 1, p.d)); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d; };
+  // UTC instant of 00:00 US Eastern on a calendar date, correct on both sides of a daylight-saving change
+  const etMidnight = (y, m, d) => {
+    const probe = new Date(Date.UTC(y, m - 1, d, 12));
+    let mins;
+    try {
+      const off = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" })
+        .formatToParts(probe).find((x) => x.type === "timeZoneName").value;          // e.g. "GMT-04:00"
+      const mt = off.match(/([+-])(\d{2}):?(\d{2})/);
+      mins = mt ? (mt[1] === "-" ? -1 : 1) * (+mt[2] * 60 + +mt[3]) : null;
+    } catch { mins = null; }                                                         // older Safari / Chromium
+    if (mins == null) mins = (localParts(probe.toISOString(), "America/New_York").h - 12) * 60;   // ET hour at 12:00 UTC
+    return new Date(Date.UTC(y, m - 1, d) - mins * 60000);
+  };
+  // Monday 00:00 ET of the week containing `date`, shifted by `weeks`
+  const etWeekStart = (date, weeks = 0) => {
+    const p = localParts(date.toISOString(), "America/New_York");
+    const day = new Date(Date.UTC(p.y, p.m - 1, p.d));
+    day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7) + 7 * weeks);
+    return etMidnight(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate());
+  };
   const niceDate = (iso, time) => new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: "America/New_York", month: "short", day: "numeric" }, time ? { hour: "numeric", minute: "2-digit" } : {})).format(new Date(iso)) + (time ? " ET" : "");
 
   /* ---------- the black-and-white counting rules, one place ---------- */
@@ -276,6 +299,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   function callStatus(b, now) {
     if (!b) return "none";
     if (b.cancel === "prospect") return "excluded";            // lead cancelled via ROAS: not a call we could show
+    if (b.cancel === "self") return "no_show";                 // the team cancelled it: a no-show (Nabeel 2026-10-19)
     if (b.call && new Date(b.call) > now) return "upcoming";   // not happened yet: left out entirely
     return b.outcome === "showed" ? "showed" : "no_show";      // EOC says showed, else no-show (incl. team cancels)
   }
@@ -301,10 +325,9 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   function slice() {
     const d = state.data, now = new Date(d.generated_at);
     const fwd = new Date(d.forward_from);
-    const mon = etMonday(now);
     let from = fwd, to = new Date(8.64e15);
-    if (state.period === "this") from = new Date(Math.max(fwd, mon.getTime() + 4 * 3600e3));
-    if (state.period === "last") { to = new Date(mon.getTime() + 4 * 3600e3); from = new Date(Math.max(fwd, to.getTime() - 7 * 864e5)); }
+    if (state.period === "this") from = new Date(Math.max(fwd, etWeekStart(now)));
+    if (state.period === "last") { to = etWeekStart(now); from = new Date(Math.max(fwd, etWeekStart(now, -1))); }
     let rows = (d.apps || []).filter((a) => a.completed && new Date(a.completed) >= from && new Date(a.completed) < to);
     if (state.tier !== "all") rows = rows.filter((a) => a.booking && a.booking.tier === state.tier);
     return { rows, now, from, to: to.getTime() > 8e15 ? now : to };
@@ -412,7 +435,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   }
   function row(r, title) {
     const tr = el("tr");
-    const small = r.t.booked < SMALL_N && r.k !== "Total";
+    const small = r.t.bookedS < SMALL_N && r.k !== "Total";
     const first = el("td");
     if (title === "Tier" && r.k !== "Total") { const s = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(r.k); s.append(i, document.createTextNode(["A", "B", "C"].includes(r.k) ? `Tier ${r.k}` : r.k)); first.appendChild(s); }
     else first.textContent = r.k;
@@ -437,7 +460,8 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const groups = [["Tier A", "A", "Closer EOC"], ["Tier B", "B", "Closer EOC"], ["Tier C", "C", "Setter EOC"]];
     let filed = 0, past = 0;
     const meters = groups.map(([label, t, form]) => {
-      const rs = rows.filter((a) => a.booking && a.booking.tier === t && ["showed", "no_show"].includes(callStatus(a.booking, now)));
+      const rs = rows.filter((a) => a.booking && a.booking.tier === t && !a.booking.cancel && a.booking.outcome !== "not_in_close"
+        && ["showed", "no_show"].includes(callStatus(a.booking, now)));
       const f = t === "C" ? null : rs.filter((a) => ["showed", "no_show"].includes(a.booking.outcome)).length;
       if (f != null) { filed += f; past += rs.length; }
       const r = el("div", { class: "meter-row" });
@@ -450,13 +474,13 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
     $("meters").replaceChildren(...meters);
     $("eocBig").textContent = past ? fmtPct(pct(filed, past)) : "–";
-    $("eocSub").textContent = past ? `${filed} of ${past} past Tier A and B calls in this period have a Closer EOC. Setter EOC (Tier C) will be added once its data is connected.` : "No Tier A or B call in this period has happened yet.";
+    $("eocSub").textContent = past ? `${filed} of ${past} Tier A and B calls held in this period have a Closer EOC (cancelled calls aren't counted here). Setter EOC (Tier C) will be added once its data is connected.` : "No Tier A or B call in this period has happened yet.";
   }
 
   /* ---------- baseline Oct 11-18, from the booking records ---------- */
   function renderBaseline() {
     const d = state.data, now = new Date(d.generated_at), end = new Date(d.forward_from);
-    const bk = d.bookings.filter((b) => SHOW_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) <= now);
+    const bk = d.bookings.filter((b) => SHOW_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
     const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
     const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
       e: rs.filter((b) => b.outcome === "showed" || b.outcome === "no_show").length });
@@ -493,8 +517,17 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       + "The true show rate is somewhere above this, and the forward tracking will tighten it as EOCs get filed.";
   }
 
+  function staleBanner() {
+    const age = (Date.now() - new Date(state.data.generated_at)) / 3600e3;
+    let b = document.getElementById("stale");
+    if (age <= 26) { if (b) b.remove(); return; }
+    if (!b) { b = el("div", { id: "stale", class: "note wrap", role: "status" }); document.querySelector(".filters").after(b); }
+    b.textContent = `These numbers are from ${niceDate(state.data.generated_at, true)}: the daily refresh hasn't run since. Check Vercel deployments.`;
+  }
+
   function render() {
     const { rows, now, from, to } = slice();
+    staleBanner();
     renderKpis(rows, now);
     renderDims(rows, now);
     renderEoc(rows, now);
