@@ -1,9 +1,22 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "python3 scripts/build_data.py",
-  "outputDirectory": ".",
-  "crons": [{ "path": "/api/refresh", "schedule": "0 11 * * *" }],
+  "buildCommand": "node scripts/fetch_roas.mjs && python3 scripts/build_data.py && mkdir -p public/data && cp index.html public/ && cp data/bookings.json public/data/",
+  "outputDirectory": "public",
+  "crons": [
+    {
+      "path": "/api/refresh",
+      "schedule": "0 11 * * *"
+    }
+  ],
   "headers": [
-    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store" }] }
+    {
+      "source": "/data/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
   ]
 }

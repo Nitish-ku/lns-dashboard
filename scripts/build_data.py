@@ -122,6 +122,76 @@ def texted_yes(lead_id, booked, call):
                and iso(s["date_created"]) < call for s in sms)
 
 
+FORWARD_FROM = "2026-10-19T04:00:00Z"   # Monday Oct 19, 00:00 ET: first week of the SalesKick-style tracking
+ROAS_EVENTS = os.environ.get("ROAS_EVENTS_OUT") or os.path.join(__import__("tempfile").gettempdir(), "roas_events.json")
+
+
+def load_roas_events():
+    """Events saved by api/roas.js (already stripped of personal data), collected by scripts/fetch_roas.mjs."""
+    if not os.path.exists(ROAS_EVENTS):
+        return []
+    seen, out = set(), []
+    for ev in json.load(open(ROAS_EVENTS, encoding="utf8")):
+        key = ev.get("deliveryId") or json.dumps(ev, sort_keys=True)
+        if key not in seen:  # ROAS retries a delivery with the same id
+            seen.add(key)
+            out.append(ev)
+    return out
+
+
+def answer_value(a):
+    v = a.get("values")
+    return " + ".join(map(str, v)) if isinstance(v, list) and v else (str(a["value"]) if a.get("value") is not None else None)
+
+
+def build_apps(events, by_ghl, ghl_status, now):
+    """One anonymous record per completed ROAS application, joined to its booking (GHL) and outcome (Close).
+    cancel: 'prospect' = ROAS sent a cancelled event (the lead used the cancel link); 'self' = cancelled in GHL with no
+    ROAS cancel event (the team cancelled it; counted as a no-show, Nabeel 2026-10-19)."""
+    apps = {}
+    for ev in sorted(events, key=lambda e: e.get("createdAtUtc") or e.get("receivedAt") or ""):
+        sub = ev.get("submission") or {}
+        if not sub.get("id") or sub.get("status") not in (None, "complete"):
+            continue
+        a = apps.setdefault(sub["id"], {"sub": sub, "lead": ev.get("lead") or {}, "appts": {}, "prospect_cancel": set()})
+        if sub.get("answers"):
+            a["sub"] = sub
+        ap = ev.get("appointment")
+        if ap and ap.get("providerBookingId"):
+            a["appts"][ap["providerBookingId"]] = ap  # latest event wins (rescheduled -> new time)
+            if (ap.get("status") or "").lower() == "cancelled":
+                a["prospect_cancel"].add(ap["providerBookingId"])
+    out = []
+    for sid, a in apps.items():
+        sub = a["sub"]
+        rec = {
+            "id": hashlib.sha256(sid.encode()).hexdigest()[:12],
+            "completed": sub.get("completedAtUtc") or sub.get("startedAtUtc"),
+            "qualified": sub.get("qualification") == "qualified",
+            "score": sub.get("score"),
+            "ending": (sub.get("ending") or {}).get("name"),
+            "answers": {x["label"]: answer_value(x) for x in sub.get("answers") or [] if answer_value(x) is not None},
+            "utm": sub.get("utm") or {},
+            "tz": a["lead"].get("timezone") or "America/New_York",
+            "booking": None,
+        }
+        if a["appts"]:
+            gid, ap = sorted(a["appts"].items(), key=lambda kv: kv[1].get("scheduledAtUtc") or "")[-1]
+            b = by_ghl.get(gid) or {}
+            cancelled = ghl_status.get(gid) in ("cancelled", "invalid") or (ap.get("status") or "").lower() == "cancelled"
+            call = b.get("call") or ap.get("scheduledAtUtc")
+            rec["booking"] = {
+                "tier": b.get("tier") or CALENDARS.get(ap.get("providerCalendarId"), "Other"),
+                "booked": b.get("booked") or ap.get("createdAtUtc"),
+                "call": call,
+                "cancel": ("prospect" if gid in a["prospect_cancel"] else "self") if cancelled else None,
+                "confirmed": bool(b.get("confirmed")),
+                "outcome": b.get("outcome") or ("upcoming" if call and iso(call) > now else "no_eoc"),
+            }
+        out.append(rec)
+    return sorted(out, key=lambda r: r["completed"] or "")
+
+
 def main():
     prev = {}
     if os.path.exists(OUT):
@@ -142,7 +212,7 @@ def main():
         rid = hashlib.sha256(e["id"].encode()).hexdigest()[:12]  # GHL ids stay private: the page is public
         old = prev.get(rid)
         if old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled")):
-            return old, False
+            return old, False, e["id"]
         rec = {"id": rid, "booked": booked.strftime("%Y-%m-%dT%H:%M:%SZ"), "call": call.strftime("%Y-%m-%dT%H:%M:%SZ"),
                "tier": tier, "confirmed": False, "outcome": "cancelled" if cancelled else "unknown", "in_close": False}
         contact = ghl(f"/contacts/{e['contactId']}", {}).get("contact", {}) if e.get("contactId") else {}
@@ -158,17 +228,20 @@ def main():
                 rec["outcome"] = outcome_of(L["id"], call < now)
         elif not cancelled:
             rec["outcome"] = "not_in_close"
-        return rec, True
+        return rec, True, e["id"]
 
     # 5 bookings at a time: fast enough for a Vercel build, gentle on Close's rate limit (429s are retried)
     with cf.ThreadPoolExecutor(5) as ex:
         results = list(ex.map(one, sorted(events, key=lambda x: x[0]["dateAdded"])))
-    out = [r for r, _ in results]
-    asked = sum(1 for _, a in results if a)
+    out = [r for r, _, _ in results]
+    asked = sum(1 for _, a, _ in results if a)
+    by_ghl = {gid: r for r, _, gid in results}
+    ghl_status = {e["id"]: (e.get("appointmentStatus") or "").lower() for e, _ in events}
+    apps = build_apps(load_roas_events(), by_ghl, ghl_status, now)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "baseline": BASELINE, "lns_live": LNS_LIVE,
-               "bookings": out}, open(OUT, "w", encoding="utf8"), indent=1)
-    print(f"{len(out)} bookings ({asked} refreshed, {len(out) - asked} settled and reused) -> {OUT}")
+               "forward_from": FORWARD_FROM, "bookings": out, "apps": apps}, open(OUT, "w", encoding="utf8"), indent=1)
+    print(f"{len(out)} bookings ({asked} refreshed, {len(out) - asked} settled and reused), {len(apps)} ROAS applications -> {OUT}")
 
 
 if __name__ == "__main__":

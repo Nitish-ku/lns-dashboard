@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Show Rate Ledger</title>
-<meta name="description" content="AI Launch Call bookings, confirmations and shows by tier since the first personalised confirmation text.">
+<meta name="description" content="Applications, booked calls, confirmations and shows for AI Partner's AI Launch Calls, by answer, tier, timing and ad.">
+<meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -12,27 +13,11 @@
 <style>
 :root {
   color-scheme: light;
-  --page: #f3f1ea;
-  --surface: #fbfaf6;
-  --ink: #12120f;
-  --ink-2: #4f4d47;
-  --muted: #8a877f;
-  --grid: #e4e1d7;
-  --axis: #c6c3b7;
-  --ring: rgba(18,18,15,.10);
-  --tier-a: #1c5cab;
-  --tier-b: #3987e5;
-  --tier-c: #86b6ef;
-  --tier-a-wash: rgba(28,92,171,.10);
-  --good: #0ca30c;
-  --good-ink: #006300;
-  --warn: #fab219;
-  --warn-ink: #8a5a00;
-  --crit: #d03b3b;
-  --neutral: #c9c6bb;
-  --neutral-2: #e4e1d7;
-  --line-confirm: #1c5cab;
-  --line-show: #0ca30c;
+  --page: #f3f1ea; --surface: #fbfaf6; --ink: #12120f; --ink-2: #4f4d47; --muted: #8a877f;
+  --grid: #e4e1d7; --axis: #c6c3b7; --ring: rgba(18,18,15,.10); --wash: #efece3;
+  --tier-a: #1c5cab; --tier-b: #3987e5; --tier-c: #86b6ef;
+  --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --warn-ink: #8a5a00; --crit: #d03b3b;
+  --meter: #2a78d6; --meter-track: #dfe8f5;
   --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
@@ -40,196 +25,127 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #0e0e0d; --surface: #171715; --ink: #f0efea; --ink-2: #c3c1b6; --muted: #8a877f;
-    --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09);
-    --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab; --tier-a-wash: rgba(183,211,246,.10);
-    --good-ink: #3fc33f; --warn-ink: #fab219; --neutral: #4a4a45; --neutral-2: #2a2a27;
-    --line-confirm: #86b6ef; --line-show: #0ca30c;
+    --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09); --wash: #20201d;
+    --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab;
+    --good-ink: #3fc33f; --warn-ink: #fab219; --meter: #3987e5; --meter-track: #1f2a3a;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0e0e0d; --surface: #171715; --ink: #f0efea; --ink-2: #c3c1b6; --muted: #8a877f;
-  --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09);
-  --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab; --tier-a-wash: rgba(183,211,246,.10);
-  --good-ink: #3fc33f; --warn-ink: #fab219; --neutral: #4a4a45; --neutral-2: #2a2a27;
-  --line-confirm: #86b6ef; --line-show: #0ca30c;
+  --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09); --wash: #20201d;
+  --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab;
+  --good-ink: #3fc33f; --warn-ink: #fab219; --meter: #3987e5; --meter-track: #1f2a3a;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5;
-  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-}
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
 @media (min-width: 720px) { .wrap { padding: 0 32px; } }
 
-/* masthead */
 .mast { padding-top: 40px; padding-bottom: 28px; }
 .mast-rule { border: 0; border-top: 1px solid var(--ink); margin: 0; }
 .mast-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
-.theme-btn {
-  font: 500 12px var(--mono); letter-spacing: .06em; color: var(--ink-2); background: transparent;
-  border: 1px solid var(--ring); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; flex: none;
-}
+.theme-btn { font: 500 12px var(--mono); letter-spacing: .06em; color: var(--ink-2); background: transparent; border: 1px solid var(--ring); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; flex: none; }
 .theme-btn:hover { color: var(--ink); border-color: var(--axis); }
-h1 {
-  font-weight: 600; font-size: clamp(40px, 7.4vw, 84px); line-height: .96; letter-spacing: -.035em;
-  margin: 28px 0 0; max-width: 14ch;
-}
+h1 { font-weight: 600; font-size: clamp(40px, 7.4vw, 84px); line-height: .96; letter-spacing: -.035em; margin: 28px 0 0; max-width: 14ch; }
 h1 em { font-style: normal; color: var(--tier-b); }
-.dek { max-width: 60ch; color: var(--ink-2); font-size: 17px; margin: 20px 0 0; }
+.dek { max-width: 62ch; color: var(--ink-2); font-size: 17px; margin: 20px 0 0; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 22px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .meta b { color: var(--ink-2); font-weight: 500; }
 
-/* filters */
-.filters {
-  position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--page) 88%, transparent);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--grid);
-}
+.filters { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--grid); }
 .filters .wrap { display: flex; flex-wrap: wrap; gap: 10px 22px; padding-top: 12px; padding-bottom: 12px; align-items: center; }
 .seg-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 8px; }
 .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 3px; }
-.seg button {
-  font: 500 13px var(--sans); color: var(--ink-2); background: transparent; border: 0; border-radius: 7px;
-  padding: 6px 12px; cursor: pointer; white-space: nowrap;
-}
-.seg button:hover { color: var(--ink); background: var(--neutral-2); }
+.seg button { font: 500 13px var(--sans); color: var(--ink-2); background: transparent; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink); background: var(--wash); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
-.seg button:focus-visible, .theme-btn:focus-visible, .tbl-btn:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
+.seg button:focus-visible, .theme-btn:focus-visible, .tbl-btn:focus-visible, th button:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
 .fgroup { display: flex; align-items: center; }
+.scope { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: auto; }
 
-/* sections */
 section { padding: 48px 0 8px; scroll-margin-top: 72px; }
 .sec-head { display: grid; grid-template-columns: auto 1fr; gap: 0 18px; align-items: baseline; margin-bottom: 22px; }
 .sec-num { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .08em; }
 h2 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0; line-height: 1.15; }
-.sec-dek { grid-column: 2; color: var(--ink-2); margin: 6px 0 0; max-width: 64ch; }
+.sec-dek { grid-column: 2; color: var(--ink-2); margin: 6px 0 0; max-width: 70ch; }
+.tag { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--ring); border-radius: 999px; padding: 2px 9px; margin-left: 10px; vertical-align: 4px; }
 .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 16px; padding: 22px; }
-@media (min-width: 720px) { .card { padding: 28px; } }
+@media (min-width: 720px) { .card { padding: 26px 28px; } }
 
-/* hero */
-.hero { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .hero { grid-template-columns: 1.25fr 1fr; } }
-.hero-main { display: flex; flex-direction: column; justify-content: space-between; min-height: 280px; }
-.hero-label { font-size: 14px; color: var(--ink-2); font-weight: 500; }
-.hero-num { font-size: clamp(72px, 13vw, 136px); font-weight: 600; letter-spacing: -.055em; line-height: .9; margin: 14px 0 8px; }
-.hero-num small { font-size: .38em; letter-spacing: -.02em; color: var(--ink-2); margin-left: 4px; font-weight: 500; }
-.hero-sub { color: var(--ink-2); max-width: 46ch; }
-.caveat {
-  display: inline-flex; gap: 8px; align-items: flex-start; margin-top: 18px; padding: 10px 12px; border-radius: 10px;
-  background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--ink); font-size: 13.5px; max-width: 52ch;
-}
-.caveat svg { flex: none; margin-top: 2px; }
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.tile { display: flex; flex-direction: column; justify-content: space-between; min-height: 132px; }
-.tile-label { font-size: 13px; color: var(--ink-2); font-weight: 500; }
-.tile-value { font-size: 40px; font-weight: 600; letter-spacing: -.035em; line-height: 1; margin-top: 14px; }
-.tile-foot { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 10px; }
-.status { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; margin-top: 10px; }
-.status .dot { width: 8px; height: 8px; border-radius: 50%; }
+/* KPI tiles */
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 760px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1080px) { .kpis.six { grid-template-columns: repeat(6, 1fr); } .kpis.four { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 16px 18px 18px; min-height: 124px; display: flex; flex-direction: column; justify-content: space-between; }
+.kpi-label { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.kpi-value { font-size: 36px; font-weight: 600; letter-spacing: -.035em; line-height: 1; margin-top: 14px; }
+.kpi-value.soon { color: var(--muted); font-size: 28px; }
+.kpi-foot { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+.kpi.lead { background: var(--ink); color: var(--page); border-color: var(--ink); }
+.kpi.lead .kpi-label, .kpi.lead .kpi-foot { color: color-mix(in srgb, var(--page) 70%, transparent); }
 
-/* funnel */
-.funnel { display: grid; gap: 0; }
-.frow { display: grid; grid-template-columns: 76px 1fr; gap: 18px; padding: 18px 0; border-top: 1px solid var(--grid); }
-.frow:first-child { border-top: 0; padding-top: 2px; }
-.tier-tag { display: flex; flex-direction: column; gap: 6px; }
-.tier-tag b { font-size: 28px; letter-spacing: -.03em; font-weight: 600; line-height: 1; }
-.tier-tag span { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .06em; }
-.swatch { width: 22px; height: 6px; border-radius: 3px; }
-.stages { display: grid; gap: 9px; }
-.stage { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 12px; }
-.stage-name { font-size: 13px; color: var(--ink-2); }
-.track { position: relative; height: 22px; }
-.bar { position: absolute; left: 0; top: 0; height: 22px; border-radius: 0 4px 4px 0; transition: width .5s cubic-bezier(.2,.7,.2,1), opacity .2s; }
-.bar:hover, .bar:focus { opacity: .85; outline: none; }
-.bar-val { position: absolute; top: 0; height: 22px; display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; padding-left: 10px; transition: left .5s cubic-bezier(.2,.7,.2,1); }
-.bar-val b { font-weight: 600; font-variant-numeric: tabular-nums; }
-.bar-val i { font-style: normal; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-.bar-val i + i.sub { margin-left: -4px; }
-.outcome { margin-top: 8px; }
-.ostrip { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
-.ostrip span { display: block; height: 100%; min-width: 2px; }
-.okey { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 12.5px; color: var(--ink-2); }
-.okey span { display: inline-flex; align-items: center; gap: 6px; }
-.okey i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.okey b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* baseline */
+.base-grid { display: grid; gap: 16px; grid-template-columns: 1fr; margin-top: 16px; }
+.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: 13.5px; color: var(--ink); }
+.note svg { flex: none; margin-top: 2px; }
 
-/* charts */
-.charts { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .charts { grid-template-columns: 1fr 1fr; } }
-.chart-title { font-size: 15px; font-weight: 600; margin: 0; }
-.chart-sub { font-size: 13px; color: var(--ink-2); margin: 2px 0 14px; }
-.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend .k-rect { width: 10px; height: 10px; border-radius: 3px; }
-.legend .k-line { width: 16px; height: 2px; border-radius: 1px; }
-svg { display: block; overflow: visible; }
-svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
-.empty { color: var(--muted); font-size: 13.5px; padding: 40px 0; text-align: center; }
-
-/* table */
-.tbl-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+/* tables */
+.dims { display: grid; gap: 16px; }
+.dim-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.dim-title { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+.dim-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tbl-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 820px; }
+th, td { text-align: right; padding: 10px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 200px; max-width: 360px; }
+thead th { font-family: var(--mono); font-weight: 500; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--axis); vertical-align: bottom; }
+th button { all: unset; cursor: pointer; }
+th button:hover { color: var(--ink); }
+th.sorted { color: var(--ink); }
+th.rule, td.rule { border-left: 1px solid var(--grid); }
+td.num-strong { font-weight: 600; }
+td.dim { color: var(--muted); }
+tbody tr:hover td { background: var(--wash); }
+tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: 0; }
+.rate { display: inline-flex; align-items: center; gap: 10px; justify-content: flex-end; min-width: 168px; }
+.rate i { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
+.rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
+.rate b { font-weight: 600; min-width: 46px; text-align: right; }
+.rate .frac { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 40px; text-align: left; }
+.small-n { color: var(--muted); }
+.lbl { display: inline-flex; align-items: center; gap: 8px; }
+.lbl i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.empty { color: var(--ink-2); font-size: 14px; padding: 28px 4px; text-align: center; }
+.empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
 .tbl-btn { font: 500 12px var(--mono); color: var(--ink-2); background: transparent; border: 1px solid var(--ring); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
-.tbl-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 760px; }
-th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
-th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
-thead th { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--axis); }
-tbody tr.wk td { border-top: 1px solid var(--axis); }
-tbody tr.total td { font-weight: 600; border-top: 1px solid var(--ink); }
-td .pct { color: var(--muted); font-size: 12px; margin-left: 4px; }
-.tiercell { display: inline-flex; align-items: center; gap: 8px; }
-.tiercell i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* EOC */
 .eoc { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .eoc { grid-template-columns: 1.1fr 1fr; } }
+@media (min-width: 900px) { .eoc { grid-template-columns: 1fr 1.2fr; } }
 .eoc-big { font-size: 64px; font-weight: 600; letter-spacing: -.045em; line-height: 1; margin: 12px 0; }
 .meters { display: grid; gap: 16px; }
-.meter-row { display: grid; grid-template-columns: 64px 1fr 92px; gap: 12px; align-items: center; font-size: 13px; }
-.meter { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--warn) 22%, var(--neutral-2)); overflow: hidden; }
-.meter span { display: block; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+.meter-row { display: grid; grid-template-columns: 130px 1fr 100px; gap: 12px; align-items: center; font-size: 13px; }
+.meter { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--warn) 22%, var(--wash)); overflow: hidden; }
+.meter span { display: block; height: 100%; border-radius: 4px; }
 .meter-row b { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
 
-/* notes */
 .notes { display: grid; gap: 24px; grid-template-columns: 1fr; padding-bottom: 8px; }
 @media (min-width: 720px) { .notes { grid-template-columns: repeat(3, 1fr); } }
-.note h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
-.note p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+.notes h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+.notes p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
 footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; padding-bottom: 48px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
-
-/* tooltip */
-.tip {
-  position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--page); border-radius: 10px;
-  padding: 10px 12px; font-size: 12.5px; min-width: 150px; box-shadow: 0 8px 28px rgba(0,0,0,.18); opacity: 0; transition: opacity .12s;
-}
-.tip.on { opacity: 1; }
-.tip .t-head { font-family: var(--mono); font-size: 11px; opacity: .7; margin-bottom: 6px; letter-spacing: .04em; }
-.tip .t-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-.tip .t-row b { font-size: 14px; font-variant-numeric: tabular-nums; }
-.tip .t-row span { display: inline-flex; align-items: center; gap: 6px; opacity: .8; }
-.tip .t-row i { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
-
 .loading { opacity: .45; transition: opacity .2s; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-/* phones */
-:root { --reserve: 150px; }
+
 @media (max-width: 560px) {
-  :root { --reserve: 84px; }
   .seg button { padding: 6px 9px; font-size: 12.5px; }
-  .seg-label { display: none; }
+  .seg-label, .scope { display: none; }
   .filters .wrap { gap: 8px; }
-  .frow { grid-template-columns: 1fr; gap: 12px; }
-  .tier-tag { flex-direction: row; align-items: center; gap: 10px; }
-  .tier-tag b { font-size: 22px; }
-  .stage { grid-template-columns: 70px 1fr; gap: 8px; }
-  .bar-val i.sub { display: none; }
-  .hero-main { min-height: 0; }
-  .tile-value { font-size: 32px; }
-  .tile { min-height: 116px; padding: 18px; }
-  .meter-row { grid-template-columns: 56px 1fr 74px; }
+  .kpi-value { font-size: 30px; }
+  .meter-row { grid-template-columns: 96px 1fr 80px; }
   .eyebrow { font-size: 10.5px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -239,10 +155,10 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 <header class="wrap mast">
   <div class="mast-top">
     <div class="eyebrow">AI Partner · Lead Nurture · Show Rate Ledger</div>
-    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch colour theme">Theme</button>
+    <button class="theme-btn" id="themeBtn" type="button">Theme</button>
   </div>
   <h1>Did they <em>show up</em>?</h1>
-  <p class="dek">Every AI Launch Call booked since Oct 11, when the first lead got Anastasia's personalised confirmation text. Follow each tier from booking to confirmation to the call itself, week by week.</p>
+  <p class="dek">Every application, booked call, confirmation and show for the AI Launch Call, broken down by how people answered the form, their tier, when they booked and which ad brought them in.</p>
   <div class="meta" id="meta"></div>
 </header>
 <div class="wrap"><hr class="mast-rule"></div>
@@ -251,9 +167,9 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   <div class="wrap">
     <div class="fgroup"><span class="seg-label">Period</span>
       <div class="seg" role="group" aria-label="Period" id="fPeriod">
-        <button type="button" data-v="baseline" aria-pressed="true">Since Oct 11</button>
-        <button type="button" data-v="lns" aria-pressed="false">Since LNS live</button>
-        <button type="button" data-v="4w" aria-pressed="false">Last 4 weeks</button>
+        <button type="button" data-v="this" aria-pressed="true">This week</button>
+        <button type="button" data-v="last" aria-pressed="false">Last week</button>
+        <button type="button" data-v="all" aria-pressed="false">Since Oct 19</button>
       </div>
     </div>
     <div class="fgroup"><span class="seg-label">Tier</span>
@@ -264,522 +180,347 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
         <button type="button" data-v="C" aria-pressed="false">C</button>
       </div>
     </div>
+    <span class="scope" id="scope"></span>
   </div>
 </nav>
 
 <main class="wrap" id="app">
-  <section aria-labelledby="h-over">
-    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-over">The headline</h2></div>
-    <div class="hero">
-      <div class="card hero-main">
-        <div>
-          <div class="hero-label">Show rate</div>
-          <div class="hero-num" id="heroNum">–</div>
-          <div class="hero-sub" id="heroSub"></div>
-        </div>
-        <div id="heroCaveat"></div>
-      </div>
-      <div class="tiles" id="tiles"></div>
-    </div>
+  <section aria-labelledby="h-kpi">
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kpi">The week at a glance</h2>
+      <p class="sec-dek">Black and white: a call counts as showed only when its EOC says so. Every other past call, including ones the team cancelled, counts as a no-show. Calls still to come are left out.</p></div>
+    <div class="kpis six" id="kpis"></div>
   </section>
 
-  <section aria-labelledby="h-fun">
-    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-fun">Booked, confirmed, showed</h2>
-      <p class="sec-dek">Each tier's funnel, scaled to its own bookings. The thin strip underneath splits every call whose date has passed by what the EOC form says happened.</p></div>
-    <div class="card"><div class="funnel" id="funnel"></div></div>
-  </section>
-
-  <section aria-labelledby="h-wk">
-    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-wk">Week by week</h2>
-      <p class="sec-dek">Weeks start on Monday (US Eastern). A booking stays in the week it was made, so recent weeks fill in as their calls happen and EOCs are filed.</p></div>
-    <div class="charts">
-      <div class="card"><h3 class="chart-title">Bookings per week</h3><p class="chart-sub">By tier, cancelled bookings included</p>
-        <div class="legend" id="lgBook"></div><div id="cBook"></div></div>
-      <div class="card"><h3 class="chart-title">Confirm rate and show rate</h3><p class="chart-sub">Confirmed ÷ active bookings · showed ÷ calls with an EOC outcome</p>
-        <div class="legend" id="lgRate"></div><div id="cRate"></div></div>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-tbl">
-    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-tbl">Every number, by week and tier</h2>
-      <p class="sec-dek">The table behind the charts. Percentages in grey.</p></div>
-    <div class="card">
-      <div class="tbl-bar"><span class="chart-sub" style="margin:0" id="tblNote"></span><button class="tbl-btn" id="csvBtn" type="button">Download CSV</button></div>
-      <div class="tbl-scroll"><table id="tbl"></table></div>
-    </div>
+  <section aria-labelledby="h-dims">
+    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-dims">What predicts a show</h2>
+      <p class="sec-dek">One table per question and per factor. Click a column to sort. Small groups (under 5 booked calls) are greyed out: read them as hints, not results.</p></div>
+    <div class="dims" id="dims"></div>
   </section>
 
   <section aria-labelledby="h-eoc">
-    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-eoc">The missing piece: EOC forms</h2>
-      <p class="sec-dek">A show or a no-show only counts once a closer files the end-of-call form. Until most past calls have one, the show rate above is a sample, not the truth.</p></div>
+    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-eoc">EOC adherence</h2>
+      <p class="sec-dek">Shows only exist once the end-of-call form is filed: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing form counts as a no-show above, so missing forms drag the show rate down.</p></div>
     <div class="eoc">
-      <div class="card"><div class="tile-label">Past calls with an EOC outcome</div><div class="eoc-big" id="eocBig">–</div><div class="hero-sub" id="eocSub"></div></div>
-      <div class="card"><div class="tile-label" style="margin-bottom:16px">EOC coverage by tier</div><div class="meters" id="meters"></div></div>
+      <div class="card"><div class="kpi-label">Past calls with an EOC filed</div><div class="eoc-big" id="eocBig">–</div><div class="dek" style="font-size:14px;margin:0" id="eocSub"></div></div>
+      <div class="card"><div class="kpi-label" style="margin-bottom:16px">By tier and form</div><div class="meters" id="meters"></div></div>
     </div>
+  </section>
+
+  <section aria-labelledby="h-base">
+    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
+      <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only (Tier C had too few EOC forms). Same black-and-white rules; filters above don't apply here.</p></div>
+    <div class="kpis four" id="baseKpis"></div>
+    <div class="base-grid"><div class="card"><div class="tbl-scroll"><table id="baseTbl"></table></div>
+      <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span id="baseWhy"></span></div>
+      <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Older bookings don't record who cancelled, so every cancellation in this baseline counts as a no-show. From Oct 19 a cancellation by the lead is told apart from one by the team.</span></div></div></div>
   </section>
 
   <section aria-labelledby="h-notes">
-    <div class="sec-head"><span class="sec-num">06</span><h2 id="h-notes">How it's counted</h2></div>
+    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-notes">How it's counted</h2></div>
     <div class="notes">
-      <div class="note"><h3>Booking and tier</h3><p>Every appointment ROAS puts on an AI Launch Call calendar in GHL since Oct 11, 13:56 UTC. Tier is the calendar it landed on: A, B or C. The few booked straight onto a closer's own AI Launch calendar count in "All" only.</p></div>
-      <div class="note"><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call. Cancelled bookings are left out of the confirm rate.</p></div>
-      <div class="note"><h3>Showed</h3><p>Set by the closers' EOC form through the Close opportunity: follow-up, deposit, won, lost or disqualified means the call happened; "No Show" means it didn't. Show rate = showed ÷ (showed + no-show).</p></div>
+      <div><h3>Applications and booked calls</h3><p>An application is a completed ROAS form. A booked call is an AI Launch Call on the GHL calendar whose time has passed; calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too; a call the team cancelled counts as a no-show.</p></div>
+      <div><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.</p></div>
+      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened (follow-up, deposit, won, lost or disqualified in Close). Anything else is a no-show. Show rate = shows ÷ booked calls, for Tier A and B; Tier C joins once Setter EOC data is connected.</p></div>
     </div>
   </section>
 </main>
-
 <footer class="wrap" id="foot"></footer>
-<div class="tip" id="tip" role="tooltip"></div>
 
 <script>
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const TIERS = ["A", "B", "C"];
-  const state = { period: "baseline", tier: "all", data: null };
-  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const tierColor = (t) => css(`--tier-${t.toLowerCase()}`);
-  const fmtPct = (n, d) => (d ? Math.round((n / d) * 100) + "%" : "–");
+  const SHOW_TIERS = ["A", "B"];           // tiers whose shows are counted (Setter EOC for C not connected yet)
+  const SMALL_N = 5;
+  const state = { period: "this", tier: "all", data: null, sorts: {} };
+  const root = document.documentElement;
+  const css = (v) => getComputedStyle(root).getPropertyValue(v).trim();
+  const tierColor = (t) => (["A", "B", "C"].includes(t) ? css(`--tier-${t.toLowerCase()}`) : css("--axis"));
+  const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
+  const fmtPct = (v) => (v == null ? "–" : (Number.isInteger(v) ? v : v.toFixed(1)) + "%");
   const el = (tag, attrs = {}, text) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
     if (text != null) n.textContent = text;
     return n;
   };
-  const svgEl = (tag, attrs = {}) => {
-    const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-    return n;
-  };
 
-  /* ---------- theme ---------- */
-  const root = document.documentElement;
+  /* theme */
   const sysDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
-  function setThemeLabel() {
-    const dark = root.dataset.theme ? root.dataset.theme === "dark" : sysDark();
-    $("themeBtn").textContent = dark ? "Light mode" : "Dark mode";
-  }
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : sysDark());
   try { const t = localStorage.getItem("srl-theme"); if (t) root.dataset.theme = t; } catch (e) {}
-  setThemeLabel();
+  const themeLabel = () => { $("themeBtn").textContent = isDark() ? "Light mode" : "Dark mode"; };
+  themeLabel();
   $("themeBtn").addEventListener("click", () => {
-    const dark = root.dataset.theme ? root.dataset.theme === "dark" : sysDark();
-    root.dataset.theme = dark ? "light" : "dark";
+    root.dataset.theme = isDark() ? "light" : "dark";
     try { localStorage.setItem("srl-theme", root.dataset.theme); } catch (e) {}
-    setThemeLabel();
-    if (state.data) render();
+    themeLabel(); if (state.data) render();
   });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { setThemeLabel(); if (state.data) render(); });
 
-  /* ---------- dates (US Eastern weeks) ---------- */
-  const etParts = (d) => {
-    const p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-    const [y, m, dd] = p.split("-").map(Number);
-    return new Date(Date.UTC(y, m - 1, dd));
-  };
-  const weekStart = (iso) => {
-    const d = etParts(new Date(iso));
-    const dow = (d.getUTCDay() + 6) % 7;
-    d.setUTCDate(d.getUTCDate() - dow);
-    return d.toISOString().slice(0, 10);
-  };
+  /* time helpers (lead's own timezone where it matters) */
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  // the days a week really covers inside the selected period ("Oct 11" for the baseline's lone Sunday, "Oct 12–18")
-  let RANGE = { from: null, now: null };
-  const wkRange = (w) => {
-    const a = new Date(w + "T00:00:00Z"), b = new Date(a); b.setUTCDate(b.getUTCDate() + 6);
-    const lo = RANGE.from ? new Date(Math.max(a, etParts(RANGE.from))) : a, hi = RANGE.now ? new Date(Math.min(b, etParts(RANGE.now))) : b;
-    const f = (d) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
-    if (lo.getTime() === hi.getTime()) return f(lo);
-    return lo.getUTCMonth() === hi.getUTCMonth() ? `${f(lo)}–${hi.getUTCDate()}` : `${f(lo)}–${f(hi)}`;
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const localParts = (iso, tz) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz || "America/New_York", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", hourCycle: "h23", weekday: "short" })
+      .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+    return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour, wd: p.weekday };
   };
-  const niceDate = (iso, time) => {
-    const opts = { timeZone: "America/New_York", month: "short", day: "numeric" };
-    if (time) Object.assign(opts, { hour: "numeric", minute: "2-digit" });
-    return new Intl.DateTimeFormat("en-US", opts).format(new Date(iso)) + (time ? " ET" : "");
-  };
+  const dayNum = (p) => Date.UTC(p.y, p.m - 1, p.d) / 864e5;
+  const etMonday = (date) => { const p = localParts(date.toISOString(), "America/New_York"); const d = new Date(Date.UTC(p.y, p.m - 1, p.d)); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d; };
+  const niceDate = (iso, time) => new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: "America/New_York", month: "short", day: "numeric" }, time ? { hour: "numeric", minute: "2-digit" } : {})).format(new Date(iso)) + (time ? " ET" : "");
 
-  /* ---------- metrics ---------- */
-  function stats(rows, now) {
-    const s = { bookings: rows.length, cancelled: 0, active: 0, confirmed: 0, passed: 0, upcoming: 0, showed: 0, no_show: 0, no_eoc: 0, unmatched: 0 };
-    for (const r of rows) {
-      if (r.outcome === "cancelled") { s.cancelled++; continue; }
-      s.active++;
-      if (r.confirmed) s.confirmed++;
-      const passed = new Date(r.call) < now;
-      if (!passed) { s.upcoming++; continue; }
-      s.passed++;
-      if (r.outcome === "showed") s.showed++;
-      else if (r.outcome === "no_show") s.no_show++;
-      else if (r.outcome === "not_in_close") s.unmatched++;
-      else s.no_eoc++;
-    }
-    s.reported = s.showed + s.no_show;
-    return s;
+  /* ---------- the black-and-white counting rules, one place ---------- */
+  // a booking record: {tier, call, cancel: null|'self'|'prospect', confirmed, outcome}
+  function callStatus(b, now) {
+    if (!b) return "none";
+    if (b.cancel === "prospect") return "excluded";            // lead cancelled via ROAS: not a call we could show
+    if (b.call && new Date(b.call) > now) return "upcoming";   // not happened yet: left out entirely
+    return b.outcome === "showed" ? "showed" : "no_show";      // EOC says showed, else no-show (incl. team cancels)
   }
+  function tally(rows, now) {
+    const t = { apps: 0, qualified: 0, dq: 0, booked: 0, confirmed: 0, bookedS: 0, shows: 0, eoc: 0, upcoming: 0 };
+    for (const r of rows) {
+      t.apps++; r.qualified ? t.qualified++ : t.dq++;
+      const b = r.booking, st = callStatus(b, now);
+      if (st === "upcoming") { t.upcoming++; continue; }
+      if (st !== "showed" && st !== "no_show") continue;
+      t.booked++;
+      if (b.confirmed) t.confirmed++;
+      if (SHOW_TIERS.includes(b.tier)) {
+        t.bookedS++;
+        if (st === "showed") t.shows++;
+        if (b.outcome === "showed" || b.outcome === "no_show") t.eoc++;
+      }
+    }
+    return t;
+  }
+
+  /* ---------- forward slice ---------- */
   function slice() {
     const d = state.data, now = new Date(d.generated_at);
-    let from = new Date(d.baseline);
-    if (state.period === "lns") from = new Date(d.lns_live);
-    if (state.period === "4w") {
-      const w = new Date(weekStart(now.toISOString()) + "T00:00:00Z");
-      w.setUTCDate(w.getUTCDate() - 21);
-      from = new Date(Math.max(w.getTime() + 4 * 3600e3, new Date(d.baseline).getTime()));
+    const fwd = new Date(d.forward_from);
+    const mon = etMonday(now);
+    let from = fwd, to = new Date(8.64e15);
+    if (state.period === "this") from = new Date(Math.max(fwd, mon.getTime() + 4 * 3600e3));
+    if (state.period === "last") { to = new Date(mon.getTime() + 4 * 3600e3); from = new Date(Math.max(fwd, to.getTime() - 7 * 864e5)); }
+    let rows = (d.apps || []).filter((a) => a.completed && new Date(a.completed) >= from && new Date(a.completed) < to);
+    if (state.tier !== "all") rows = rows.filter((a) => a.booking && a.booking.tier === state.tier);
+    return { rows, now, from, to: to.getTime() > 8e15 ? now : to };
+  }
+
+  /* ---------- KPI tiles ---------- */
+  function kpi(label, value, foot, cls = "") {
+    const k = el("div", { class: "kpi " + cls });
+    const top = el("div"); top.append(el("div", { class: "kpi-label" }, label), el("div", { class: "kpi-value" + (value === "soon" ? " soon" : "") }, value === "soon" ? "Soon" : value));
+    k.append(top, el("div", { class: "kpi-foot" }, foot));
+    return k;
+  }
+  function renderKpis(rows, now) {
+    const t = tally(rows, now);
+    $("kpis").replaceChildren(
+      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.bookedS} booked · ${t.shows} showed (A+B)`, "lead"),
+      kpi("Slot show rate", "soon", "needs calendar slot data"),
+      kpi("Slot utilization", "soon", "needs calendar slot data"),
+      kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`),
+      kpi("Booked calls", String(t.booked), `${t.upcoming} still to come · ${fmtPct(pct(t.confirmed, t.booked))} confirmed`),
+      kpi("Shows", String(t.shows), `Tier A and B`));
+  }
+
+  /* ---------- dimension tables ---------- */
+  const callWindow = (iso, tz) => { const h = localParts(iso, tz).h; return h < 12 ? "Morning (before 12pm)" : h < 17 ? "Afternoon (12-5pm)" : "Evening (after 5pm)"; };
+  const leadTime = (b, tz) => {
+    if (!b || !b.booked || !b.call) return null;
+    const n = dayNum(localParts(b.call, tz)) - dayNum(localParts(b.booked, tz));
+    return n <= 0 ? "Same day" : n === 1 ? "Next day" : n === 2 ? "2 days ahead" : n <= 6 ? "3 to 6 days ahead" : "A week or more ahead";
+  };
+  const LENGTHS = ["0-10 characters", "11-20 characters", "21-50 characters", "50+ characters"];  // typed answers (api/roas.js)
+  const ORDER = {
+    "How far ahead it was booked": ["Same day", "Next day", "2 days ahead", "3 to 6 days ahead", "A week or more ahead"],
+    "Call time (lead's local time)": ["Morning (before 12pm)", "Afternoon (12-5pm)", "Evening (after 5pm)"],
+    "Call day": DAYS, "Tier": ["A", "B", "C", "Other", "Not booked"],
+  };
+  function dimensions(rows) {
+    const dims = [];
+    dims.push(["Tier", (a) => (a.booking ? a.booking.tier : "Not booked")]);
+    dims.push(["Application score", (a) => (a.score == null ? null : `Score ${a.score}`)]);
+    dims.push(["Qualified", (a) => (a.qualified ? "Qualified" : "Disqualified")]);
+    const qs = [];
+    for (const a of rows) for (const q of Object.keys(a.answers || {})) if (!qs.includes(q)) qs.push(q);
+    for (const q of qs) dims.push([q, (a) => (a.answers || {})[q] ?? null, true]);
+    dims.push(["How far ahead it was booked", (a) => leadTime(a.booking, a.tz)]);
+    dims.push(["Call time (lead's local time)", (a) => (a.booking && a.booking.call ? callWindow(a.booking.call, a.tz) : null)]);
+    dims.push(["Call day", (a) => (a.booking && a.booking.call ? localParts(a.booking.call, a.tz).wd : null)]);
+    dims.push(["Ad creative", (a) => (a.utm || {}).utm_content || null]);
+    dims.push(["Placement", (a) => (a.utm || {}).utm_medium || null]);
+    dims.push(["Source", (a) => (a.utm || {}).utm_source || null]);
+    return dims;
+  }
+  const COLS = [
+    ["Answer", null], ["Apps", "apps"], ["Booked calls", "booked"], ["Confirmed", "confirmed"], ["Shows", "shows"],
+    ["% of apps", "pApps"], ["% of booked", "pBooked"], ["Confirm rate", "cRate"], ["Show rate (A+B)", "sRate"],
+  ];
+  function renderDims(rows, now) {
+    const box = $("dims");
+    if (!rows.length) {
+      const c = el("div", { class: "card empty" });
+      c.append(el("b", {}, (state.data.apps || []).length ? "No applications in this period yet." : "Collecting from Monday, Oct 19."),
+        document.createTextNode((state.data.apps || []).length ? "Try another period or tier." : "Applications appear here once the ROAS webhook is connected. Each table fills in as calls happen and EOC forms are filed."));
+      box.replaceChildren(c); return;
     }
-    const inPeriod = d.bookings.filter((r) => new Date(r.booked) >= from);
-    const rows = state.tier === "all" ? inPeriod : inPeriod.filter((r) => r.tier === state.tier);
-    return { rows, inPeriod, now, from };
-  }
-
-  /* ---------- tooltip ---------- */
-  const tip = $("tip");
-  function showTip(evt, head, lines) {
-    tip.replaceChildren();
-    tip.appendChild(el("div", { class: "t-head" }, head));
-    for (const [label, value, color] of lines) {
-      const row = el("div", { class: "t-row" });
-      const lab = el("span");
-      if (color) { const k = el("i"); k.style.background = color; lab.appendChild(k); }
-      lab.appendChild(document.createTextNode(label));
-      row.append(lab, el("b", {}, value));
-      tip.appendChild(row);
-    }
-    tip.classList.add("on");
-    moveTip(evt);
-  }
-  function moveTip(evt) {
-    const r = evt.target.getBoundingClientRect ? evt.target.getBoundingClientRect() : null;
-    const x = evt.clientX ?? (r ? r.left + r.width / 2 : 0), y = evt.clientY ?? (r ? r.top : 0);
-    const w = tip.offsetWidth, h = tip.offsetHeight;
-    tip.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, x + 14)) + "px";
-    tip.style.top = Math.max(8, y - h - 12) + "px";
-  }
-  const hideTip = () => tip.classList.remove("on");
-  function hoverable(node, head, lines) {
-    node.setAttribute("tabindex", "0");
-    node.addEventListener("pointermove", (e) => showTip(e, head, lines()));
-    node.addEventListener("pointerleave", hideTip);
-    node.addEventListener("focus", (e) => showTip(e, head, lines()));
-    node.addEventListener("blur", hideTip);
-  }
-
-  /* ---------- sections ---------- */
-  const WARN_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>';
-
-  function renderHero(s) {
-    $("heroNum").replaceChildren();
-    if (s.reported) {
-      $("heroNum").append(String(Math.round((s.showed / s.reported) * 100)), el("small", {}, "%"));
-    } else $("heroNum").textContent = "–";
-    $("heroSub").textContent = s.reported
-      ? `${s.showed} of the ${s.reported} calls with an EOC outcome happened. ${s.no_show} were no-shows.`
-      : "No call in this selection has an EOC outcome yet.";
-    const cov = s.passed ? s.reported / s.passed : 1;
-    const cav = $("heroCaveat");
-    cav.replaceChildren();
-    if (s.passed && cov < 0.8) {
-      const c = el("div", { class: "caveat" });
-      c.innerHTML = WARN_ICON;
-      c.appendChild(el("span", {}, `Based on ${s.reported} of ${s.passed} past calls. ${s.passed - s.reported} have no EOC form yet, so treat this as a sample.`));
-      cav.appendChild(c);
-    }
-    const tiles = [
-      ["Bookings", String(s.bookings), `${s.cancelled} cancelled · ${s.upcoming} still upcoming`],
-      ["Confirm rate", fmtPct(s.confirmed, s.active), `${s.confirmed} of ${s.active} active bookings`],
-      ["Calls held", String(s.showed), `${s.no_show} no-shows reported`],
-      ["EOC coverage", fmtPct(s.reported, s.passed), `${s.reported} of ${s.passed} past calls`, s.passed ? (cov >= 0.8 ? "good" : "warn") : null],
-    ];
-    $("tiles").replaceChildren(...tiles.map(([label, value, foot, status]) => {
-      const t = el("div", { class: "card tile" });
-      const top = el("div");
-      top.append(el("div", { class: "tile-label" }, label), el("div", { class: "tile-value" }, value));
-      t.appendChild(top);
-      const bottom = el("div");
-      bottom.appendChild(el("div", { class: "tile-foot" }, foot));
-      if (status) {
-        const st = el("div", { class: "status" });
-        const dot = el("span", { class: "dot" });
-        dot.style.background = status === "good" ? "var(--good)" : "var(--warn)";
-        st.append(dot, el("span", {}, status === "good" ? "Healthy" : "Too many calls missing an EOC"));
-        st.style.color = status === "good" ? "var(--good-ink)" : "var(--warn-ink)";
-        bottom.appendChild(st);
-      }
-      t.appendChild(bottom);
-      return t;
-    }));
-  }
-
-  function renderFunnel(inPeriod, now) {
-    const box = $("funnel");
-    const tiers = state.tier === "all" ? TIERS : [state.tier];
-    const max = Math.max(1, ...tiers.map((t) => inPeriod.filter((r) => r.tier === t).length));
-    box.replaceChildren(...tiers.map((t) => {
-      const s = stats(inPeriod.filter((r) => r.tier === t), now);
-      const row = el("div", { class: "frow" });
-      const tag = el("div", { class: "tier-tag" });
-      const sw = el("i", { class: "swatch" }); sw.style.background = tierColor(t);
-      tag.append(el("b", {}, t), sw, el("span", {}, `TIER ${t}`));
-      const stages = el("div", { class: "stages" });
-      const defs = [
-        ["Booked", s.bookings, null, `${s.cancelled} cancelled`],
-        ["Confirmed", s.confirmed, fmtPct(s.confirmed, s.active), `of ${s.active} active`],
-        ["Showed", s.showed, s.reported ? fmtPct(s.showed, s.reported) : "–", `of ${s.reported} with EOC`],
-      ];
-      for (const [name, n, pct, sub] of defs) {
-        const st = el("div", { class: "stage" });
-        const track = el("div", { class: "track" });
-        const w = (n / max) * 100;
-        const bar = el("div", { class: "bar", role: "img", "aria-label": `Tier ${t} ${name.toLowerCase()}: ${n}` });
-        bar.style.width = `max(${n ? 3 : 0}px, calc(${w}% - var(--reserve) * ${w / 100}))`;
-        bar.style.background = tierColor(t);
-        const val = el("div", { class: "bar-val" });
-        val.append(el("b", {}, String(n)));
-        if (pct) val.append(el("i", {}, pct));
-        val.append(el("i", { class: "sub" }, sub));
-        val.style.left = `calc(${w}% - var(--reserve) * ${w / 100})`;
-        hoverable(bar, `TIER ${t} · ${name.toUpperCase()}`, () => [[name, String(n), tierColor(t)], ...(pct ? [["Rate", `${pct} ${sub}`]] : [])]);
-        track.append(bar, val);
-        st.append(el("span", { class: "stage-name" }, name), track);
-        stages.appendChild(st);
-      }
-      // outcome strip for past calls
-      const oc = el("div", { class: "outcome" });
-      const parts = [["Showed", s.showed, "var(--good)"], ["No-show", s.no_show, "var(--crit)"], ["No EOC yet", s.no_eoc + s.unmatched, "var(--neutral)"]];
-      const strip = el("div", { class: "ostrip", role: "img", "aria-label": `Tier ${t} past calls: ${parts.map((p) => `${p[1]} ${p[0]}`).join(", ")}` });
-      const tot = parts.reduce((a, p) => a + p[1], 0);
-      if (tot) for (const [lab, n, col] of parts) {
-        if (!n) continue;
-        const sp = el("span"); sp.style.flex = String(n); sp.style.background = col;
-        hoverable(sp, `TIER ${t} · PAST CALLS`, () => [[lab, `${n} of ${tot}`, col]]);
-        strip.appendChild(sp);
-      } else { const sp = el("span"); sp.style.flex = "1"; sp.style.background = "var(--neutral-2)"; strip.appendChild(sp); }
-      const key = el("div", { class: "okey" });
-      key.appendChild(el("span", {}, `${tot} past calls:`));
-      for (const [lab, n, col] of parts) {
-        const k = el("span"); const i = el("i"); i.style.background = col;
-        k.append(i, el("b", {}, String(n)), document.createTextNode(" " + lab.replace("Showed", "showed").replace("No-show", "no-show").replace("No EOC yet", "no EOC yet")));
-        key.appendChild(k);
-      }
-      oc.append(strip, key);
-      stages.appendChild(oc);
-      row.append(tag, stages);
-      return row;
-    }));
-  }
-
-  function weeks(rows, now) {
-    const map = new Map();
-    for (const r of rows) {
-      const w = weekStart(r.booked);
-      if (!map.has(w)) map.set(w, []);
-      map.get(w).push(r);
-    }
-    return [...map.keys()].sort().map((w) => ({ w, rows: map.get(w), s: stats(map.get(w), now) }));
-  }
-
-  function renderBookChart(inPeriod, now) {
-    const box = $("cBook");
-    const tiers = state.tier === "all" ? TIERS : [state.tier];
-    const lg = $("lgBook"); lg.replaceChildren();
-    for (const t of tiers) { const s = el("span"); const k = el("i", { class: "k-rect" }); k.style.background = tierColor(t); s.append(k, document.createTextNode(`Tier ${t}`)); lg.appendChild(s); }
-    const W = weeks(inPeriod, now);
-    if (!W.length) { box.replaceChildren(el("div", { class: "empty" }, "No bookings in this period.")); return; }
-    const width = box.clientWidth || 480, height = 240, m = { t: 18, r: 8, b: 30, l: 34 };
-    const iw = width - m.l - m.r, ih = height - m.t - m.b;
-    const vals = W.flatMap((x) => tiers.map((t) => x.rows.filter((r) => r.tier === t).length));
-    const yMax = niceMax(Math.max(4, ...vals));
-    const svg = svgEl("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Bookings per week by tier" });
-    gridY(svg, yMax, m, iw, ih, (v) => String(v));
-    const band = iw / W.length;
-    const bw = Math.min(24, (band * 0.7 - 2 * (tiers.length - 1)) / tiers.length);
-    const groupW = bw * tiers.length + 2 * (tiers.length - 1);
-    W.forEach((x, i) => {
-      const gx = m.l + band * i + (band - groupW) / 2;
-      tiers.forEach((t, j) => {
-        const n = x.rows.filter((r) => r.tier === t).length;
-        const h = (n / yMax) * ih, X = gx + j * (bw + 2), Y = m.t + ih - h;
-        if (n) svg.appendChild(svgEl("path", { d: roundTop(X, Y, bw, h, Math.min(4, h)), fill: tierColor(t) }));
-        const hit = svgEl("rect", { x: X - 1, y: m.t, width: bw + 2, height: ih, fill: "transparent", "aria-label": `Week of ${wkRange(x.w)}, tier ${t}: ${n}` });
-        hoverable(hit, `WEEK OF ${wkRange(x.w).toUpperCase()}`, () => tiers.map((tt) => [`Tier ${tt}`, String(x.rows.filter((r) => r.tier === tt).length), tierColor(tt)]));
-        svg.appendChild(hit);
+    box.replaceChildren(...dimensions(rows).map(([title, key, isQuestion]) => {
+      const groups = new Map();
+      for (const a of rows) { const k = key(a); if (k == null || k === "") continue; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
+      // the total and every share in this table cover only the rows it lists (timing tables have booked calls only)
+      const total = tally([...groups.values()].flat(), now);
+      const card = el("div", { class: "card" });
+      const head = el("div", { class: "dim-head" });
+      head.append(el("h3", { class: "dim-title" }, title), el("span", { class: "dim-sub" }, isQuestion ? "Form question" : ""));
+      card.appendChild(head);
+      if (!groups.size) { card.appendChild(el("div", { class: "empty" }, "No data for this yet.")); return card; }
+      let list = [...groups.entries()].map(([k, rs]) => {
+        const t = tally(rs, now);
+        return { k, t, apps: t.apps, booked: t.booked, confirmed: t.confirmed, shows: t.shows,
+          pApps: pct(t.apps, total.apps), pBooked: pct(t.booked, total.booked), cRate: pct(t.confirmed, t.booked), sRate: pct(t.shows, t.bookedS) };
       });
-      const total = x.rows.filter((r) => tiers.includes(r.tier)).length;
-      const lbl = svgEl("text", { x: gx + groupW / 2, y: height - 10, "text-anchor": "middle" }); lbl.textContent = wkRange(x.w); svg.appendChild(lbl);
-      const tl = svgEl("text", { x: gx + groupW / 2, y: m.t + ih - (Math.max(...tiers.map((t) => x.rows.filter((r) => r.tier === t).length)) / yMax) * ih - 7, "text-anchor": "middle", style: "fill: var(--ink-2); font-weight: 500" });
-      tl.textContent = String(total); svg.appendChild(tl);
+      const s = state.sorts[title];
+      if (s) list.sort((x, y) => ((y[s.key] ?? -1) - (x[s.key] ?? -1)) * s.dir);
+      else if (ORDER[title]) list.sort((x, y) => ORDER[title].indexOf(x.k) - ORDER[title].indexOf(y.k));
+      else if (list.every((r) => LENGTHS.includes(r.k))) list.sort((x, y) => LENGTHS.indexOf(x.k) - LENGTHS.indexOf(y.k));
+      else list.sort((x, y) => y.apps - x.apps || String(x.k).localeCompare(String(y.k)));
+      const scroll = el("div", { class: "tbl-scroll" }), table = el("table");
+      const thead = el("thead"), hr = el("tr");
+      COLS.forEach(([label, k], i) => {
+        const th = el("th", { scope: "col", class: (i === 5 ? "rule " : "") + (s && s.key === k ? "sorted" : "") });
+        if (k) {
+          const b = el("button", { type: "button", "aria-label": `Sort by ${label}` }, label + (s && s.key === k ? (s.dir === 1 ? " ↓" : " ↑") : ""));
+          b.addEventListener("click", () => { const cur = state.sorts[title]; state.sorts[title] = { key: k, dir: cur && cur.key === k ? -cur.dir : 1 }; renderDims(slice().rows, now); });
+          th.appendChild(b);
+        } else th.textContent = title === "Tier" ? "Tier" : "Answer";
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      const tb = el("tbody");
+      for (const r of list) tb.appendChild(row(r, title));
+      const tt = { k: "Total", apps: total.apps, booked: total.booked, confirmed: total.confirmed, shows: total.shows, pApps: 100, pBooked: 100,
+        cRate: pct(total.confirmed, total.booked), sRate: pct(total.shows, total.bookedS), t: total };
+      const trT = row(tt, title); trT.classList.add("total"); tb.appendChild(trT);
+      table.append(thead, tb); scroll.appendChild(table); card.appendChild(scroll);
+      return card;
+    }));
+  }
+  function row(r, title) {
+    const tr = el("tr");
+    const small = r.t.booked < SMALL_N && r.k !== "Total";
+    const first = el("td");
+    if (title === "Tier" && r.k !== "Total") { const s = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(r.k); s.append(i, document.createTextNode(["A", "B", "C"].includes(r.k) ? `Tier ${r.k}` : r.k)); first.appendChild(s); }
+    else first.textContent = r.k;
+    tr.appendChild(first);
+    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–", not a misleading 0
+    const showsTxt = r.t.bookedS === 0 && r.t.booked > 0 ? "–" : String(r.shows);
+    for (const v of [r.apps, r.booked, r.confirmed, showsTxt]) tr.appendChild(el("td", {}, String(v)));
+    const p1 = el("td", { class: "rule dim" }, fmtPct(r.pApps)); tr.appendChild(p1);
+    tr.appendChild(el("td", { class: "dim" }, fmtPct(r.pBooked)));
+    tr.appendChild(el("td", {}, fmtPct(r.cRate)));
+    const sr = el("td"), wrap = el("span", { class: "rate" + (small ? " small-n" : "") });
+    if (r.sRate != null) { const bar = el("i"); const fill = el("span"); fill.style.width = Math.min(100, r.sRate) + "%"; bar.appendChild(fill); wrap.appendChild(bar); }
+    wrap.appendChild(el("b", {}, r.sRate == null ? "–" : fmtPct(r.sRate)));
+    if (r.sRate != null) wrap.appendChild(el("em", { class: "frac", title: "shows / Tier A+B booked calls" }, `${r.t.shows}/${r.t.bookedS}`));
+    sr.appendChild(wrap); tr.appendChild(sr);
+    if (small) tr.querySelectorAll("td").forEach((td) => td.classList.add("small-n"));
+    return tr;
+  }
+
+  /* ---------- EOC adherence ---------- */
+  function renderEoc(rows, now) {
+    const groups = [["Tier A", "A", "Closer EOC"], ["Tier B", "B", "Closer EOC"], ["Tier C", "C", "Setter EOC"]];
+    let filed = 0, past = 0;
+    const meters = groups.map(([label, t, form]) => {
+      const rs = rows.filter((a) => a.booking && a.booking.tier === t && ["showed", "no_show"].includes(callStatus(a.booking, now)));
+      const f = t === "C" ? null : rs.filter((a) => ["showed", "no_show"].includes(a.booking.outcome)).length;
+      if (f != null) { filed += f; past += rs.length; }
+      const r = el("div", { class: "meter-row" });
+      const l = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(t); l.append(i, document.createTextNode(`${label} · ${form}`));
+      const m = el("div", { class: "meter" }); const s = el("span");
+      if (f != null && rs.length) { s.style.width = (f / rs.length) * 100 + "%"; s.style.background = f / rs.length >= 0.8 ? "var(--good)" : "var(--warn)"; }
+      m.appendChild(s);
+      r.append(l, m, el("b", {}, f == null ? "not connected" : rs.length ? `${fmtPct(pct(f, rs.length))} · ${f}/${rs.length}` : "–"));
+      return r;
     });
-    svg.appendChild(svgEl("line", { x1: m.l, x2: m.l + iw, y1: m.t + ih + .5, y2: m.t + ih + .5, stroke: css("--axis") }));
-    box.replaceChildren(svg);
+    $("meters").replaceChildren(...meters);
+    $("eocBig").textContent = past ? fmtPct(pct(filed, past)) : "–";
+    $("eocSub").textContent = past ? `${filed} of ${past} past Tier A and B calls in this period have a Closer EOC. Setter EOC (Tier C) will be added once its data is connected.` : "No Tier A or B call in this period has happened yet.";
   }
 
-  function renderRateChart(rows, now) {
-    const box = $("cRate");
-    const series = [["Confirm rate", css("--line-confirm"), (s) => (s.active ? s.confirmed / s.active : null)],
-                    ["Show rate", css("--line-show"), (s) => (s.reported ? s.showed / s.reported : null)]];
-    const lg = $("lgRate"); lg.replaceChildren();
-    for (const [n, c] of series) { const s = el("span"); const k = el("i", { class: "k-line" }); k.style.background = c; s.append(k, document.createTextNode(n)); lg.appendChild(s); }
-    const W = weeks(rows, now);
-    if (!W.length) { box.replaceChildren(el("div", { class: "empty" }, "No bookings in this period.")); return; }
-    const width = box.clientWidth || 480, height = 240, m = { t: 18, r: 44, b: 30, l: 40 };
-    const iw = width - m.l - m.r, ih = height - m.t - m.b;
-    const svg = svgEl("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Weekly confirm rate and show rate" });
-    gridY(svg, 1, m, iw, ih, (v) => Math.round(v * 100) + "%", [0, .25, .5, .75, 1]);
-    const xAt = (i) => m.l + (W.length === 1 ? iw / 2 : (iw * i) / (W.length - 1));
-    const yAt = (v) => m.t + ih - v * ih;
-    for (const [name, color, f] of series) {
-      const pts = W.map((x, i) => [i, f(x.s)]).filter((p) => p[1] != null);
-      if (pts.length > 1) svg.appendChild(svgEl("path", { d: pts.map((p, k) => `${k ? "L" : "M"}${xAt(p[0])},${yAt(p[1])}`).join(""), fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
-      for (const p of pts) svg.appendChild(svgEl("circle", { cx: xAt(p[0]), cy: yAt(p[1]), r: 4.5, fill: color, stroke: css("--surface"), "stroke-width": 2 }));
-      const last = pts[pts.length - 1];
-      if (last) { const t = svgEl("text", { x: xAt(last[0]) + 9, y: yAt(last[1]) + 4, style: "fill: var(--ink-2); font-weight: 500" }); t.textContent = Math.round(last[1] * 100) + "%"; svg.appendChild(t); }
-    }
-    W.forEach((x, i) => { const t = svgEl("text", { x: xAt(i), y: height - 10, "text-anchor": "middle" }); t.textContent = wkRange(x.w); svg.appendChild(t); });
-    svg.appendChild(svgEl("line", { x1: m.l, x2: m.l + iw, y1: m.t + ih + .5, y2: m.t + ih + .5, stroke: css("--axis") }));
-    // crosshair layer
-    const cross = svgEl("line", { y1: m.t, y2: m.t + ih, stroke: css("--axis"), "stroke-width": 1, opacity: 0 });
-    svg.appendChild(cross);
-    const layer = svgEl("rect", { x: m.l - 10, y: m.t, width: iw + 20, height: ih, fill: "transparent", tabindex: 0, "aria-label": "Weekly rates, move to read values" });
-    const at = (evt) => {
-      const r = svg.getBoundingClientRect();
-      const px = (evt.clientX ?? r.left + r.width / 2) - r.left;
-      let best = 0, bd = Infinity;
-      W.forEach((_, i) => { const d = Math.abs(xAt(i) - px); if (d < bd) { bd = d; best = i; } });
-      return best;
-    };
-    const show = (evt) => {
-      const i = at(evt), x = W[i];
-      cross.setAttribute("x1", xAt(i)); cross.setAttribute("x2", xAt(i)); cross.setAttribute("opacity", 1);
-      showTip(evt, `WEEK OF ${wkRange(x.w).toUpperCase()}`, [
-        ["Confirm rate", x.s.active ? `${fmtPct(x.s.confirmed, x.s.active)} (${x.s.confirmed}/${x.s.active})` : "–", css("--line-confirm")],
-        ["Show rate", x.s.reported ? `${fmtPct(x.s.showed, x.s.reported)} (${x.s.showed}/${x.s.reported})` : "no EOCs yet", css("--line-show")]]);
-    };
-    layer.addEventListener("pointermove", show);
-    layer.addEventListener("focus", show);
-    layer.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); hideTip(); });
-    layer.addEventListener("blur", () => { cross.setAttribute("opacity", 0); hideTip(); });
-    svg.appendChild(layer);
-    box.replaceChildren(svg);
-  }
-
-  // four whole-number gridline steps: 0 / step / 2·step / 3·step / 4·step
-  function niceMax(v) { const steps = [1, 2, 5, 10, 15, 20, 25, 50, 75, 100, 150, 200, 250, 500]; return 4 * (steps.find((s) => 4 * s >= v) || Math.ceil(v / 400) * 100); }
-  function gridY(svg, yMax, m, iw, ih, fmt, ticks) {
-    ticks = ticks || [0, yMax / 4, yMax / 2, (3 * yMax) / 4, yMax];
-    for (const v of ticks) {
-      const y = Math.round(m.t + ih - (v / yMax) * ih) + .5;
-      if (v) svg.appendChild(svgEl("line", { x1: m.l, x2: m.l + iw, y1: y, y2: y, stroke: css("--grid") }));
-      const t = svgEl("text", { x: m.l - 8, y: y + 4, "text-anchor": "end" }); t.textContent = fmt(v); svg.appendChild(t);
-    }
-  }
-  function roundTop(x, y, w, h, r) {
-    return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
-  }
-
-  const COLS = ["Week", "Tier", "Booked", "Cancelled", "Confirmed", "Past calls", "Showed", "No-show", "No EOC", "Upcoming"];
-  function tableRows(inPeriod, now) {
-    const tiers = state.tier === "all" ? [...TIERS, "Other"] : [state.tier];
-    const out = [];
-    for (const x of weeks(inPeriod, now)) {
-      let first = true;
-      for (const t of tiers) {
-        const rs = x.rows.filter((r) => r.tier === t);
-        if (!rs.length) continue;
-        out.push({ week: wkRange(x.w), tier: t, s: stats(rs, now), first });
-        first = false;
-      }
-    }
-    const all = inPeriod.filter((r) => tiers.includes(r.tier));
-    out.push({ week: "Total", tier: state.tier === "all" ? "All" : state.tier, s: stats(all, now), total: true });
-    return out;
-  }
-  function renderTable(inPeriod, now) {
-    const rows = tableRows(inPeriod, now);
-    const t = $("tbl"); t.replaceChildren();
+  /* ---------- baseline Oct 11-18, from the booking records ---------- */
+  function renderBaseline() {
+    const d = state.data, now = new Date(d.generated_at), end = new Date(d.forward_from);
+    const bk = d.bookings.filter((b) => SHOW_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) <= now);
+    const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
+    const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
+      e: rs.filter((b) => b.outcome === "showed" || b.outcome === "no_show").length });
+    const all = sum(bk);
+    $("baseKpis").replaceChildren(
+      kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead"),
+      kpi("Booked calls", String(all.n), "calls already held or due"),
+      kpi("Confirm rate", fmtPct(pct(all.c, all.n)), `${all.c} confirmed`),
+      kpi("No-shows", String(all.n - all.s), "incl. cancellations, missing EOCs"));
+    const groups = [
+      ["Tier A", bk.filter((b) => b.tier === "A"), "A"], ["Tier B", bk.filter((b) => b.tier === "B"), "B"],
+      ["Confirmed", bk.filter((b) => b.confirmed)], ["Not confirmed", bk.filter((b) => !b.confirmed)],
+      ["Cancelled (counted as no-show)", bk.filter((b) => b.outcome === "cancelled")],
+    ];
+    const t = $("baseTbl"); t.replaceChildren();
     const thead = el("thead"), hr = el("tr");
-    for (const c of COLS) hr.appendChild(el("th", { scope: "col" }, c));
+    for (const h of ["", "Booked calls", "EOC filed", "Showed", "No-show", "Confirmed", "Confirm rate", "Show rate"]) hr.appendChild(el("th", { scope: "col" }, h));
     thead.appendChild(hr);
     const tb = el("tbody");
-    for (const r of rows) {
-      const tr = el("tr", { class: r.total ? "total" : r.first ? "wk" : "" });
-      tr.appendChild(el("td", {}, r.first || r.total ? r.week : ""));
-      const tc = el("td"), inner = el("span", { class: "tiercell" });
-      if (TIERS.includes(r.tier)) { const i = el("i"); i.style.background = tierColor(r.tier); inner.appendChild(i); }
-      inner.appendChild(document.createTextNode(r.tier === "Other" ? "Other" : r.tier === "All" ? "All tiers" : `Tier ${r.tier}`));
-      tc.appendChild(inner);
-      tr.appendChild(tc);
-      const s = r.s;
-      const cells = [[s.bookings], [s.cancelled], [s.confirmed, fmtPct(s.confirmed, s.active)], [s.passed], [s.showed, s.reported ? fmtPct(s.showed, s.reported) : ""], [s.no_show], [s.no_eoc + s.unmatched], [s.upcoming]];
-      for (const [v, p] of cells) { const td = el("td", {}, String(v)); if (p) td.appendChild(el("span", { class: "pct" }, p)); tr.appendChild(td); }
+    for (const [label, rs, tier] of groups) {
+      const s = sum(rs), tr = el("tr"), td = el("td");
+      if (tier) { const l = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(tier); l.append(i, document.createTextNode(label)); td.appendChild(l); } else td.textContent = label;
+      tr.appendChild(td);
+      for (const v of [s.n, s.e, s.s, s.n - s.s, s.c]) tr.appendChild(el("td", {}, String(v)));
+      tr.appendChild(el("td", {}, fmtPct(pct(s.c, s.n))));
+      const sr = el("td"), w = el("span", { class: "rate" }); const bar = el("i"); const f = el("span"); f.style.width = (pct(s.s, s.n) || 0) + "%"; bar.appendChild(f);
+      w.append(bar, el("b", {}, fmtPct(pct(s.s, s.n)))); sr.appendChild(w); tr.appendChild(sr);
       tb.appendChild(tr);
     }
     t.append(thead, tb);
-    $("tblNote").textContent = `${rows.length - 1} rows · rates use the same rules as the charts`;
-    $("csvBtn").onclick = () => {
-      const lines = [["week_of", "tier", "booked", "cancelled", "confirmed", "confirm_rate", "past_calls", "showed", "no_show", "show_rate", "no_eoc", "upcoming"].join(",")];
-      for (const r of rows) {
-        const s = r.s;
-        lines.push([r.week, r.tier, s.bookings, s.cancelled, s.confirmed, s.active ? (s.confirmed / s.active).toFixed(3) : "", s.passed, s.showed, s.no_show, s.reported ? (s.showed / s.reported).toFixed(3) : "", s.no_eoc + s.unmatched, s.upcoming].join(","));
-      }
-      const a = el("a", { href: URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })), download: "lns-show-rate.csv" });
-      document.body.appendChild(a); a.click(); a.remove();
-    };
-  }
-
-  function renderEoc(inPeriod, now) {
-    const s = stats(state.tier === "all" ? inPeriod : inPeriod.filter((r) => r.tier === state.tier), now);
-    $("eocBig").textContent = fmtPct(s.reported, s.passed);
-    $("eocSub").textContent = s.passed
-      ? `${s.reported} of ${s.passed} calls whose time has passed have a show or no-show recorded. ${s.passed - s.reported} are still "Booked Meeting" in Close.`
-      : "No call in this selection has happened yet.";
-    const tiers = state.tier === "all" ? TIERS : [state.tier];
-    $("meters").replaceChildren(...tiers.map((t) => {
-      const ts = stats(inPeriod.filter((r) => r.tier === t), now);
-      const row = el("div", { class: "meter-row" });
-      const lab = el("span", { class: "tiercell" }); lab.style.display = "flex"; lab.style.alignItems = "center"; lab.style.gap = "8px";
-      const i = el("i"); i.style.cssText = `width:10px;height:10px;border-radius:3px;display:inline-block;background:${tierColor(t)}`;
-      lab.append(i, document.createTextNode(`Tier ${t}`));
-      const meter = el("div", { class: "meter", role: "meter", "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": ts.passed ? Math.round((ts.reported / ts.passed) * 100) : 0, "aria-label": `Tier ${t} EOC coverage` });
-      const fill = el("span"); const cov = ts.passed ? ts.reported / ts.passed : 0;
-      fill.style.width = (cov * 100) + "%"; fill.style.background = cov >= 0.8 ? "var(--good)" : "var(--warn)";
-      meter.appendChild(fill);
-      row.append(lab, meter, el("b", {}, ts.passed ? `${fmtPct(ts.reported, ts.passed)} · ${ts.reported}/${ts.passed}` : "–"));
-      return row;
-    }));
+    const cancelled = bk.filter((b) => b.outcome === "cancelled").length;
+    $("baseWhy").textContent = `Read this as a paperwork number first: only ${all.e} of ${all.n} calls have an EOC filed. `
+      + `The other ${all.n - all.e - cancelled} past calls and ${cancelled} cancellations all count as no-shows under the black-and-white rule. `
+      + "The true show rate is somewhere above this, and the forward tracking will tighten it as EOCs get filed.";
   }
 
   function render() {
-    const { rows, inPeriod, now, from } = slice();
-    RANGE = { from, now };
-    renderHero(stats(rows, now));
-    renderFunnel(inPeriod, now);
-    renderBookChart(inPeriod, now);
-    renderRateChart(rows, now);
-    renderTable(inPeriod, now);
-    renderEoc(inPeriod, now);
+    const { rows, now, from, to } = slice();
+    renderKpis(rows, now);
+    renderDims(rows, now);
+    renderEoc(rows, now);
+    renderBaseline();
     const d = state.data;
-    $("meta").replaceChildren(
-      ...[["Baseline", niceDate(d.baseline, true) + " · first personalised text"], ["LNS live", niceDate(d.lns_live, true)], ["Showing", `bookings since ${niceDate(from.toISOString())}`], ["Updated", niceDate(d.generated_at, true)]]
-        .map(([k, v]) => { const s = el("span"); s.append(el("b", {}, k + " "), document.createTextNode(v)); return s; }));
+    $("scope").textContent = `Applications ${niceDate(from.toISOString())} – ${niceDate(new Date(Math.min(to, now) - 1).toISOString())}`;
+    $("meta").replaceChildren(...[["Tracking from", "Mon Oct 19"], ["Baseline", "Oct 11 – 18"], ["Updated", niceDate(d.generated_at, true)]]
+      .map(([k, v]) => { const s = el("span"); s.append(el("b", {}, k + " "), document.createTextNode(v)); return s; }));
   }
 
-  function wire(groupId, key) {
-    $(groupId).addEventListener("click", (e) => {
+  function wire(id, key) {
+    $(id).addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       state[key] = b.dataset.v;
-      for (const x of $(groupId).querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+      for (const x of $(id).querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
       $("app").classList.add("loading");
       requestAnimationFrame(() => { render(); $("app").classList.remove("loading"); });
     });
   }
-  wire("fPeriod", "period");
-  wire("fTier", "tier");
-  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.data && render(), 120); });
-
-  $("foot").append(el("span", {}, "Sources: GHL appointments · Close leads & opportunities (closers' EOC form)"), el("span", {}, "Rebuilt daily at 7am ET on Vercel · no names, emails or phone numbers stored"));
+  wire("fPeriod", "period"); wire("fTier", "tier");
+  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar · Close (Closer EOC outcome, confirmations)"), el("span", {}, "Rebuilt daily at 7am ET · no names, emails or phone numbers stored"));
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then((d) => { state.data = d; render(); })
-    .catch(() => { $("app").replaceChildren(el("p", { class: "empty" }, "Couldn't load data/bookings.json. If you opened this file directly, serve the folder instead (python -m http.server).")); });
+    .catch(() => { $("app").replaceChildren(el("p", { class: "empty" }, "Couldn't load the data. If you opened this file directly, serve the folder instead (python -m http.server).")); });
 })();
 </script>
 </body>
