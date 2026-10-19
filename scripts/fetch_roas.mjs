@@ -1,7 +1,7 @@
 // Build step 1: collect every stored ROAS event (api/roas.js) into one file OUTSIDE the published folder, so the raw
 // events are never served; build_data.py turns them into anonymous application records.
 //   ROAS_EVENTS_OUT (default: <tmp>/roas_events.json)
-// Local runs without BLOB_READ_WRITE_TOKEN: reads ROAS_EVENTS_DIR (a folder of saved events) or writes an empty list.
+// Local runs without blob credentials: reads ROAS_EVENTS_DIR (a folder of saved events) or writes an empty list.
 import { get, list } from "@vercel/blob";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,7 +10,9 @@ import { tmpdir } from "node:os";
 const out = process.env.ROAS_EVENTS_OUT || join(tmpdir(), "roas_events.json");
 let events = [];
 
-if (process.env.BLOB_READ_WRITE_TOKEN) {
+// Vercel: the store connection sets BLOB_STORE_ID and the SDK signs in with the build's OIDC token (no read-write
+// token needed); BLOB_READ_WRITE_TOKEN also works. If listing fails the build fails, so stale data stays live.
+if (process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN) {
   const blobs = [];
   let cursor;
   do {
