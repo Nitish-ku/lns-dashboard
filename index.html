@@ -221,7 +221,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span id="baseWhy"></span></div>
       <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>Older bookings don't record who cancelled, so every cancellation in this baseline counts as a no-show. From Oct 19 a cancellation by the lead is told apart from one by the team.</span></div></div></div>
+      <span>Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically too.</span></div></div></div>
   </section>
 
   <section aria-labelledby="h-notes">
@@ -522,7 +522,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const cancelled = bk.filter((b) => b.outcome === "cancelled").length;
     const held = all.n - cancelled, missing = held - all.e;
     $("baseWhy").textContent = `Read this as a paperwork number first: of ${held} calls that were held or due, only ${all.e} have an EOC filed. `
-      + `The ${missing} without one and the ${cancelled} the team cancelled all count as no-shows under the black-and-white rule. `
+      + `The ${missing} without one and the ${cancelled} other cancellations all count as no-shows under the black-and-white rule. `
       + "The true show rate is somewhere above this, and the forward tracking will tighten it as EOCs get filed.";
   }
 
