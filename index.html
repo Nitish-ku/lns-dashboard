@@ -113,6 +113,25 @@ td.dim { color: var(--muted); }
 tbody tr:hover td { background: var(--wash); }
 tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: 0; }
 tr.sep td { border-top: 1px solid var(--ink); padding-top: 14px; }
+/* morning report */
+.rep { display: grid; gap: 16px; grid-template-columns: 1fr; }
+/* the three cards stack full width: side by side their tables had to scroll */
+.rep > * { min-width: 0; }
+.rep-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.rep table td:first-child, .rep table th:first-child { min-width: 120px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--mono); letter-spacing: .02em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: var(--ink); }
+.badge.full { background: color-mix(in srgb, var(--crit) 22%, transparent); }
+.badge.nearly_full { background: color-mix(in srgb, var(--warn) 24%, transparent); }
+.badge.ok { background: color-mix(in srgb, var(--good) 18%, transparent); }
+.badge.closed { background: var(--wash); color: var(--ink-2); }
+.badge svg { flex: none; }
+.rep-who { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.rep-who span { font: 500 12px var(--mono); border: 1px solid var(--ring); border-radius: 999px; padding: 3px 10px; color: var(--ink-2); }
+.rep-who b { color: var(--ink); }
+.rep a { color: var(--ink); text-underline-offset: 3px; }
+.slot { font-family: var(--mono); font-size: 12.5px; }
+.slot em { font-style: normal; color: var(--muted); }
+@media (max-width: 560px) { .rep table td:first-child, .rep table th:first-child { min-width: 88px; max-width: 110px; } .badge { font-size: 11px; padding: 3px 7px; } }
 .rate { display: inline-flex; align-items: center; gap: 10px; justify-content: flex-end; min-width: 168px; }
 .rate i { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
 .rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
@@ -195,8 +214,21 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 </nav>
 
 <main class="wrap" id="app">
+  <section aria-labelledby="h-rep">
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-rep">Morning report <span class="tag" id="repAsOf">–</span></h2>
+      <p class="sec-dek">For the start of the sales day, rebuilt early every morning (7am ET in summer time, 6am in winter): do closers have room, which of today's calls nobody has confirmed, and which of yesterday's calls are missing their EOC. The filters above don't apply here. A confirmation or EOC that comes in later shows up in the next morning's build. Calls the team cancelled in GHL aren't listed as missing an EOC.</p></div>
+    <div class="rep">
+      <div class="card rep-cap"><div class="rep-head"><h3 class="dim-title">Closer capacity</h3><span class="dim-sub" id="repCapSub"></span></div>
+        <div class="tbl-scroll"><table id="repCap"></table></div><div id="repHand"></div></div>
+      <div class="card"><div class="rep-head"><h3 class="dim-title" id="repUncTitle">Today's calls not confirmed</h3><span class="dim-sub" id="repUncSub"></span></div>
+        <div class="tbl-scroll"><table id="repUnc"></table></div></div>
+      <div class="card"><div class="rep-head"><h3 class="dim-title" id="repEocTitle">Yesterday's missing EOCs</h3><span class="dim-sub" id="repEocSub"></span></div>
+        <div class="rep-who" id="repWho"></div><div class="tbl-scroll"><table id="repEoc"></table></div></div>
+    </div>
+  </section>
+
   <section aria-labelledby="h-kind">
-    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kind">Showed calls by booking type</h2>
+    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-kind">Showed calls by booking type</h2>
       <p class="sec-dek">Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types. Fresh bookings are direct (Tier A, B, and any other closer calendar) plus setter-led. Recoveries count as calls but not as fresh bookings. Follow-ups aren't counted, and Tier C triage calls have their own rate. Cancelled by the lead and rescheduled calls are left out of the show rate; a call the team cancelled is a no-show. The tier filter doesn't apply here.</p></div>
     <div class="kpis four" id="kindKpis"></div>
     <div class="card" style="margin-top:12px"><div class="tbl-scroll"><table id="kindTbl"></table></div>
@@ -205,19 +237,19 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   </section>
 
   <section aria-labelledby="h-kpi">
-    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-kpi">Applications in this period</h2>
+    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-kpi">Applications in this period</h2>
       <p class="sec-dek">Grouped by when the application came in, so a call booked for a later week counts once it has happened. Black and white: a call counts as showed only when its EOC says so; every other past call, including ones the team cancelled, is a no-show. Calls still to come are left out.</p></div>
     <div class="kpis six" id="kpis"></div>
   </section>
 
   <section aria-labelledby="h-dims">
-    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-dims">What predicts a show</h2>
+    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-dims">What predicts a show</h2>
       <p class="sec-dek">One table per question and per factor. Click a column to sort. Small groups (under 5 booked calls) are greyed out: read them as hints, not results.</p></div>
     <div class="dims" id="dims"></div>
   </section>
 
   <section aria-labelledby="h-eoc">
-    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-eoc">EOC adherence</h2>
+    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-eoc">EOC adherence</h2>
       <p class="sec-dek">Shows only exist once the end-of-call form is filed in Airtable: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing or blank form counts as a no-show above, so missing forms drag the show rate down.</p></div>
     <div class="eoc">
       <div class="card"><div class="kpi-label">Past calls with an EOC filed</div><div class="eoc-big" id="eocBig">–</div><div class="dek" style="font-size:14px;margin:0" id="eocSub"></div></div>
@@ -226,7 +258,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   </section>
 
   <section aria-labelledby="h-base">
-    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
+    <div class="sec-head"><span class="sec-num">06</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
       <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only, as Nabeel set it. Same black-and-white rules; filters above don't apply here.</p></div>
     <div class="kpis four" id="baseKpis"></div>
     <div class="base-grid"><div class="card"><div class="tbl-scroll"><table id="baseTbl"></table></div>
@@ -237,12 +269,12 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   </section>
 
   <section aria-labelledby="h-notes">
-    <div class="sec-head"><span class="sec-num">06</span><h2 id="h-notes">How it's counted</h2></div>
+    <div class="sec-head"><span class="sec-num">07</span><h2 id="h-notes">How it's counted</h2></div>
     <div class="notes">
       <div><h3>Applications and booked calls</h3><p>An application is a completed ROAS form. A booked call is an AI Launch Call on the GHL calendar whose time has passed; calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too; a call the team cancelled counts as a no-show.</p></div>
       <div><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.</p></div>
       <div><h3>Booking types</h3><p>Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying "Closer Booking"). Recovery: a closer call booked again after the lead no-showed or the team cancelled. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this.</p></div>
-      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. The show rate covers closer calls (Tier A and B); Tier C triage calls have their own rate in section 01. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
+      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. The show rate covers closer calls (Tier A and B); Tier C triage calls have their own rate in section 02. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
     </div>
   </section>
 </main>
@@ -335,7 +367,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       if (SHOW_TIERS.includes(b.tier)) {
         t.bookedS++;
         if (st === "showed") t.shows++;
-        if (!b.cancel && b.outcome !== "not_in_close") { t.eocBase++; if (b.eoc) t.eoc++; }
+        if (!b.cancel && b.outcome !== "not_in_close") { t.eocBase++; if (b.eoc && !b.eoc_blank) t.eoc++; }
       }
     }
     return t;
@@ -460,7 +492,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     if (title === "Tier" && r.k !== "Total") { const s = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(r.k); s.append(i, document.createTextNode(["A", "B", "C"].includes(r.k) ? `Tier ${r.k}` : r.k)); first.appendChild(s); }
     else first.textContent = r.k;
     tr.appendChild(first);
-    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–" (its rate is in section 01)
+    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–" (its rate is in section 02)
     const showsTxt = r.t.bookedS === 0 && r.t.booked > 0 ? "–" : String(r.shows);
     for (const v of [r.apps, r.booked, r.confirmed, showsTxt]) tr.appendChild(el("td", {}, String(v)));
     const p1 = el("td", { class: "rule dim" }, fmtPct(r.pApps)); tr.appendChild(p1);
@@ -482,7 +514,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const meters = groups.map(([label, t, form]) => {
       const rs = rows.filter((a) => a.booking && a.booking.tier === t && !a.booking.cancel && a.booking.outcome !== "not_in_close"
         && ["showed", "no_show"].includes(callStatus(a.booking, now)));
-      const f = rs.filter((a) => a.booking.eoc).length;
+      const f = rs.filter((a) => a.booking.eoc && !a.booking.eoc_blank).length;
       if (f != null) { filed += f; past += rs.length; }
       const r = el("div", { class: "meter-row" });
       const l = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(t); l.append(i, document.createTextNode(`${label} · ${form}`));
@@ -495,6 +527,112 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     $("meters").replaceChildren(...meters);
     $("eocBig").textContent = past ? fmtPct(pct(filed, past)) : "–";
     $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed (Closer EOC for A and B, Setter EOC for C). Cancelled calls aren't counted here.` : "No call in this period has happened yet.";
+  }
+
+  /* ---------- morning report (built at 7am ET; filters don't apply) ---------- */
+  const KIND_LABEL = { direct: "Direct", setter_led: "Setter-led", recovery: "Recovery", follow_up: "Follow-up", triage: "Triage" };
+  const BADGE = {
+    full: ["Hand to setter", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="var(--crit)"/><path d="M5 8h6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>'],
+    closed: ["No hours", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="var(--muted)" stroke-width="1.8"/></svg>'],
+    nearly_full: ["Getting full", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>'],
+    ok: ["Room", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="var(--good)"/><path d="m5 8.2 2 2 4-4.4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>'],
+  };
+  const etTime = (iso) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+  const etDay = (ymd) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }).format(new Date(ymd + "T12:00:00Z"));
+  function badge(status) {
+    const b = el("span", { class: "badge " + status });
+    const [label, icon] = BADGE[status] || [String(status), BADGE.closed[1]];   // unknown: neutral, never "Room"
+    if (!BADGE[status]) b.className = "badge closed";
+    b.innerHTML = icon;              // fixed markup above, never data
+    b.appendChild(document.createTextNode(label));
+    return b;
+  }
+  function closeLink(url) {
+    const td = el("td");
+    if (url && /^https:\/\/app\.close\.com\/lead\/lead_[A-Za-z0-9]+\/$/.test(url)) td.appendChild(el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, "Open in Close"));
+    else td.appendChild(el("span", { class: "small-n" }, "not in Close"));
+    return td;
+  }
+  function listTable(t, head, rows, cells, empty) {
+    t.replaceChildren();
+    if (!rows.length) { t.appendChild(el("tbody")).appendChild(el("tr")).appendChild(el("td", { class: "small-n" }, empty)); return; }
+    const thead = el("thead"), hr = el("tr");
+    head.forEach((h) => hr.appendChild(el("th", { scope: "col" }, h)));
+    thead.appendChild(hr);
+    const tb = el("tbody");
+    for (const r of rows) { const tr = el("tr"); cells(r).forEach((c) => tr.appendChild(typeof c === "string" ? el("td", {}, c) : c)); tb.appendChild(tr); }
+    t.append(thead, tb);
+  }
+  const tierCell = (tier) => { const td = el("td"), l = el("span", { class: "lbl" }), i = el("i"); i.style.background = tierColor(tier); l.append(i, document.createTextNode(["A", "B", "C"].includes(tier) ? `Tier ${tier}` : tier)); td.appendChild(l); return td; };
+  const days0 = (r) => ((r.capacity || [])[0] || { days: [] }).days.map((d) => d.date);
+  function renderReport() {
+    const sec = document.querySelector('[aria-labelledby="h-rep"]');
+    try { drawReport(state.data.report, sec); }
+    catch (e) { sec.hidden = true; console.error("morning report", e); }
+  }
+  function drawReport(r, sec) {
+    if (!r) { sec.hidden = true; return; }
+    sec.hidden = false;
+    r.capacity = r.capacity || []; r.unconfirmed = r.unconfirmed || []; r.missing_eoc = r.missing_eoc || [];
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+    const stale = r.today !== today;
+    const dayTwo = stale && days0(r)[1] ? `on ${etDay(days0(r)[1])}` : "tomorrow";
+    $("repAsOf").textContent = `as of ${niceDate(r.as_of, true)}` + (stale ? " · not today's" : "");
+    $("repUncTitle").textContent = stale ? `Calls on ${etDay(r.today)} not confirmed` : "Today's calls not confirmed";
+    $("repEocTitle").textContent = stale ? `Missing EOCs from ${etDay(r.yesterday)}` : "Yesterday's missing EOCs";
+    // capacity: one row per calendar, three days
+    const cap = $("repCap"); cap.replaceChildren();
+    const days = (r.capacity[0] || { days: [] }).days.map((d) => d.date);
+    const thead = el("thead"), hr = el("tr");
+    // status right after the calendar: on a phone the rest scrolls, the verdict stays in view
+    ["Calendar", "Status", ...days.map((d, i) => (stale || i > 1 ? etDay(d) : i === 0 ? "Rest of today" : "Tomorrow"))].forEach((h) => hr.appendChild(el("th", { scope: "col" }, h)));
+    thead.appendChild(hr);
+    const tb = el("tbody");
+    for (const c of r.capacity) {
+      const tr = el("tr"), first = tierCell(c.tier);
+      first.appendChild(el("div", { class: "small-n", style: "font-size:12px" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + (c.per_slot > 1 ? ` · ${c.per_slot} per slot` : "")));
+      tr.appendChild(first);
+      const st = el("td", { style: "text-align:left" });
+      if (c.error) st.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
+      else if (c.status) st.appendChild(badge(c.status));
+      else st.appendChild(el("span", { class: "small-n" }, "setter calendar"));
+      tr.appendChild(st);
+      for (const d of c.days) {
+        const td = el("td"), s = el("span", { class: "slot" });
+        if (c.error || d.open == null) s.textContent = "–";
+        else s.append(document.createTextNode(`${d.open} open`), el("em", {}, ` · ${d.booked} to come`));
+        td.appendChild(s); tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+    cap.append(thead, tb);
+    $("repCapSub").textContent = `Open = slots still bookable (GHL), to come = calls still ahead. Red at ${r.thresholds.full} open ${dayTwo}, amber at ${r.thresholds.nearly_full} or fewer.`;
+    const hand = r.capacity.filter((c) => c.status === "full");
+    const box = $("repHand"); box.replaceChildren();
+    for (const c of hand) {
+      const n = el("div", { class: "note" }); n.style.background = "color-mix(in srgb, var(--crit) 12%, transparent)";
+      const span = el("span");
+      const list = c.hand_over || [];
+      span.textContent = `Tier ${c.tier} has no open slot ${dayTwo}. ` + (list.length
+        ? `In each closer's slot holding more than one call ${dayTwo}, the later booking is the one to hand to a setter (${list.length}):`
+        : "No double-booked slot tomorrow, so nothing obvious to hand over; new bookings will need a setter.");
+      n.appendChild(span); box.appendChild(n);
+      if (list.length) {
+        const t = el("table"), w = el("div", { class: "tbl-scroll" }); w.appendChild(t); box.appendChild(w);
+        listTable(t, ["Time (ET)", "With", "Confirmed", "Lead"], list, (x) => [etTime(x.call), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
+      }
+    }
+    // today's unconfirmed
+    $("repUncSub").textContent = r.unconfirmed.length ? `${r.unconfirmed.length} call${r.unconfirmed.length === 1 ? "" : "s"}` : "";
+    listTable($("repUnc"), ["Time (ET)", "Tier", "Type", "With", "Lead"], r.unconfirmed,
+      (x) => [etTime(x.call), tierCell(x.tier), KIND_LABEL[x.kind] || "–", x.who, closeLink(x.close)], stale ? `Every call on ${etDay(r.today)} was confirmed.` : "Every call today is confirmed.");
+    // yesterday's missing EOCs, with a count per person
+    $("repEocSub").textContent = `${etDay(r.yesterday)} · Closer EOC for A and B, Setter EOC for C`;
+    const per = {};
+    for (const x of r.missing_eoc) per[x.who] = (per[x.who] || 0) + 1;
+    $("repWho").replaceChildren(...Object.entries(per).sort((a, b) => b[1] - a[1]).map(([who, n]) => { const s = el("span"); s.append(el("b", {}, String(n)), document.createTextNode(` ${who}`)); return s; }));
+    listTable($("repEoc"), ["Time (ET)", "Tier", "Form", "Who files it", "State", "Lead"], r.missing_eoc,
+      (x) => [etTime(x.call), tierCell(x.tier), x.form, x.who, x.state === "blank" ? "Filed blank" : x.state === "not in Close" ? "Can't check: not in Close" : "Not filed", closeLink(x.close)], stale ? `Every call on ${etDay(r.yesterday)} has its EOC.` : "Every call yesterday has its EOC.");
   }
 
   /* ---------- showed calls by booking type (Nabeel's sheet), from the booking records, by call time ---------- */
@@ -586,7 +724,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && b.kind !== "follow_up" && !EXCL.includes(b.cancel_by) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
     const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
     const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
-      e: rs.filter((b) => b.eoc && b.outcome !== "cancelled").length });
+      e: rs.filter((b) => b.eoc && !b.eoc_blank && b.outcome !== "cancelled").length });
     const all = sum(bk);
     $("baseKpis").replaceChildren(
       kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead"),
@@ -635,6 +773,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     renderKpis(rows, now);
     renderDims(rows, now);
     renderEoc(rows, now);
+    renderReport();
     // by call time: "this week" ends Sunday night (calls still to come are counted as such), "since Oct 19" stays open
     renderKinds(from, state.period === "this" ? etWeekStart(now, 1) : end, now);
     renderBaseline();
@@ -654,7 +793,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
-  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar · Airtable (Closer and Setter EOC) · Close (confirmations)"), el("span", {}, "Rebuilt daily at 7am ET · no names, emails or phone numbers stored"));
+  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar and availability · Airtable (Closer and Setter EOC) · Close (confirmations)"), el("span", {}, "Rebuilt early every morning ET · no lead names, emails or phone numbers stored; the morning report shows team names and Close links, behind this password"));
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
