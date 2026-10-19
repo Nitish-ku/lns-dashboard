@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
+<script>/* a saved dark choice applies before the first paint (no light flash) */try{if(localStorage.getItem("srl-theme-v2")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Show Rate Ledger</title>
 <meta name="description" content="Applications, booked calls, confirmations and shows for AI Partner's AI Launch Calls, by answer, tier, timing and ad.">
@@ -21,15 +22,7 @@
   --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0e0e0d; --surface: #171715; --ink: #f0efea; --ink-2: #c3c1b6; --muted: #8a877f;
-    --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09); --wash: #20201d;
-    --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab;
-    --good-ink: #3fc33f; --warn-ink: #fab219; --meter: #3987e5; --meter-track: #1f2a3a;
-  }
-}
+/* dark only when the viewer picks it (light is the default, 2026-10-20) */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0e0e0d; --surface: #171715; --ink: #f0efea; --ink-2: #c3c1b6; --muted: #8a877f;
@@ -301,14 +294,15 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   };
 
   /* theme */
-  const sysDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
-  const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : sysDark());
-  try { const t = localStorage.getItem("srl-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+  // light by default (Nitish, 2026-10-20), whatever the device's setting; the button switches and the choice is
+  // remembered. A new key, so an old saved choice from when the page followed the device starts over in light.
+  const isDark = () => root.dataset.theme === "dark";
+  try { localStorage.removeItem("srl-theme"); } catch (e) {}   // the old key (device-following days); the <head> script applies srl-theme-v2
   const themeLabel = () => { $("themeBtn").textContent = isDark() ? "Light mode" : "Dark mode"; };
   themeLabel();
   $("themeBtn").addEventListener("click", () => {
     root.dataset.theme = isDark() ? "light" : "dark";
-    try { localStorage.setItem("srl-theme", root.dataset.theme); } catch (e) {}
+    try { localStorage.setItem("srl-theme-v2", root.dataset.theme); } catch (e) {}
     themeLabel(); if (state.data) render();
   });
 
