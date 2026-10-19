@@ -9,7 +9,10 @@ tier, booking timing, call time and ad. Password-protected (`DASHBOARD_PASSWORD`
 - `scripts/fetch_roas.mjs` (build step 1): collects the stored events into a temp file outside the published folder.
 - `scripts/build_data.py` (build step 2): reads GHL (bookings; tier = calendar) and Close (confirmation; Closer EOC
   outcome on the opportunity), joins the ROAS applications, writes anonymous records to `data/bookings.json`.
-- `index.html`: the page, no framework. `middleware.js`: password gate (the two API routes stay reachable).
+- `index.html`: the page, no framework. A small report app: left sidebar (Today, Show rates, Applications, EOC adherence,
+  Baseline), one view per page switched by the URL hash (`#today`, `#show-rates`, `#applications`, `#eoc`, `#baseline`),
+  a top bar with the Period and Tier filters (only on views they apply to) and a light/dark toggle. Definitions live in
+  small "i" tooltips on KPI labels and column headers. On a phone the sidebar becomes a top tab bar. `middleware.js`: password gate (the two API routes stay reachable).
 - `vercel.json`: build = the two scripts, publishes only `public/` (page + data). Daily cron 11:00 UTC calls
   `api/refresh.js`, which triggers a fresh deployment through a Deploy Hook.
 
