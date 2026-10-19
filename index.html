@@ -412,11 +412,11 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     unconfirmedN: "Booked calls nobody has confirmed yet: the no-show risks.",
     status: "Based on tomorrow. Red: no open slot (closers: hand to a setter; options are also more calendar space, triple booking or another closer. Tier C: a sign to hire a setter). Amber: 2 or fewer open. Green: room. Grey: no hours that day.",
     missingEoc: "Calls from the previous day with no EOC filed, or one filed blank. Calls the team cancelled in GHL aren't listed. From the morning build.",
-    live: "Availability is checked live from GHL and Close when you open Today, then every 5 minutes while it's open (or press Refresh). If the live check fails, the morning build is shown.",
+    live: "Availability is checked live from GHL and Close when you open Today, then every 15 minutes while it's open (or press Refresh). If the live check fails, the morning build is shown.",
     handover: "Only when a closer has no open slot tomorrow. In each of that closer's slots holding more than one call, every booking after the first is the one to pass to a setter; the first booking stays with the closer.",
     baseline: "Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only. Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically.",
     baseNoShow: "Includes cancellations and calls with no EOC filed.",
-    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Today's availability is live (checked when you open Today and every 5 minutes); everything else is rebuilt each morning (7am ET in summer time, 6am in winter). No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
+    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Today's availability is live (checked when you open Today and every 15 minutes); everything else is rebuilt each morning (7am ET in summer time, 6am in winter). No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
   };
   /* one shared tooltip: positioned in JS so a scrolling table never clips it; the text is also the button's accessible name */
   const tipEl = $("tip");
@@ -1064,8 +1064,8 @@ td a { color: var(--accent); text-underline-offset: 3px; }
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
   $("liveBtn").addEventListener("click", loadLive);
-  // Today keeps itself fresh: a live check on opening it, then every 5 minutes while it is open and visible
-  setInterval(() => { if (state.view === "today" && !document.hidden) loadLive(); }, 5 * 60 * 1000);
+  // Today keeps itself fresh: a live check on opening it, then every 15 minutes while it is open and visible (Nabeel; fewer calls on shared GHL/Close keys)
+  setInterval(() => { if (state.view === "today" && !document.hidden) loadLive(); }, 15 * 60 * 1000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && state.view === "today") loadLive(true); });
   addEventListener("hashchange", route);
   route();

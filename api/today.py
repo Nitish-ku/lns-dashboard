@@ -1,6 +1,6 @@
 """Live availability for the Today view (Nabeel's review, Oct 19: "update it every 15 minutes").
 GET /api/today -> {"as_of", "today", "thresholds", "capacity"} computed now from GHL + Close (build_data.live_today).
-Behind the site password (middleware.js covers /api/today). The page calls it when Today is opened and every 5 minutes
+Behind the site password (middleware.js covers /api/today). The page calls it when Today is opened and every 15 minutes
 while it stays open. A warm function instance reuses its answer for 60 s (on Hobby each instance serves one request
 at a time, so simultaneous requests may each compute; that's fine at 2 users).
 """
