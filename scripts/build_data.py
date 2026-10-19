@@ -21,6 +21,7 @@ Records whose outcome is settled (cancelled, or showed / no-show) are reused fro
 asks Close and GHL about bookings that can still change.
 """
 import base64
+import collections
 import concurrent.futures as cf
 import hashlib
 import datetime as dt
@@ -83,7 +84,10 @@ def http(url, headers, tries=5):
                 return json.load(r)
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and attempt < tries - 1:
-                time.sleep(2 + attempt * 3)
+                wait = 2 + attempt * 3
+                if e.code == 429 and "airtable.com" in url:
+                    wait = max(31, int(e.headers.get("Retry-After") or 0))  # Airtable locks the base for 30 s
+                time.sleep(wait)
                 continue
             raise SystemExit(f"GET {url.split('?')[0]} -> {e.code}")
         except urllib.error.URLError:
@@ -136,6 +140,16 @@ def airtable(table, formula, fields):
         offset = d.get("offset")
         if not offset:
             return out
+        time.sleep(0.25)  # Airtable allows 5 requests/s per base, shared with Make
+
+
+EXCLUDED = ("prospect", "rescheduled", "dq")   # cancel_by values that take a call OUT of the show rate
+SETTER_OUTCOMES = {"no show": "no_show", "closer booking": "showed", "downsold": "showed", "sdr followup": "showed", "dq": "showed"}
+
+
+def _one(v):
+    """A lookup/linked field comes back as a list: use its first value."""
+    return (v[0] if v else None) if isinstance(v, list) else v
 
 
 def load_eocs():
@@ -148,41 +162,58 @@ def load_eocs():
         print("note: no AIRTABLE_TOKEN, EOC outcomes come from Close only")
         return {}
     since = (iso(BASELINE) - dt.timedelta(days=2)).strftime("%Y-%m-%d")
-    by_lead = {}
+    by_lead, skipped, unknown = {}, 0, collections.Counter()
+
+    def add(f, form, when_field, out, by):
+        nonlocal skipped
+        try:
+            lead, when = _one(f.get("Lead ID")), _one(f.get(when_field))
+            if lead and when:
+                by_lead.setdefault(str(lead).strip(), []).append((iso(str(when)), form, out, by))
+        except Exception:  # noqa: BLE001  an odd value never stops the build; it is counted instead
+            skipped += 1
+
     for r in airtable(CLOSER_EOC, f"IS_AFTER({{Date & Time of Call}}, '{since}')",
                       ["Lead ID", "Date & Time of Call", "Showed?", "Call Outcome", "No Show Reason?"]):
         f = r["fields"]
-        reason = f.get("No Show Reason?") or ""
-        if f.get("Showed?") == "Yes" or f.get("Call Outcome"):
+        showed, reason = _one(f.get("Showed?")), _one(f.get("No Show Reason?")) or ""
+        if showed == "Yes":
             out, by = "showed", None
-        elif f.get("Showed?") == "No":
-            out, by = {"Client Cancelled Call": ("excluded", "prospect"), "Rescheduled": ("excluded", None),
+        elif showed == "No":  # Showed? decides when it's set; Call Outcome only when it's blank (critic #5)
+            out, by = {"Client Cancelled Call": ("excluded", "prospect"), "Rescheduled": ("excluded", "rescheduled"),
                        "Closer Cancelled Call": ("no_show", "team")}.get(reason, ("no_show", None))
-        elif f.get("Showed?"):  # "Other (Lead got Triage Disqualified)": not a closer call that could show
-            out, by = "excluded", None
+        elif showed:  # "Other (Lead got Triage Disqualified)": not a closer call that could show
+            out, by = "excluded", "dq"
         else:
-            out, by = "blank", None
-        if f.get("Lead ID") and f.get("Date & Time of Call"):
-            by_lead.setdefault(f["Lead ID"].strip(), []).append((iso(f["Date & Time of Call"]), "closer", out, by))
+            out, by = ("showed", None) if _one(f.get("Call Outcome")) else ("blank", None)
+        add(f, "closer", "Date & Time of Call", out, by)
     for r in airtable(SETTER_EOC, f"IS_AFTER({{Event Date & Time}}, '{since}')",
                       ["Lead ID", "Event Date & Time", "Call Outcome (Booking)"]):
         f = r["fields"]
-        o = f.get("Call Outcome (Booking)")
-        out = "blank" if not o else "no_show" if o.lower() == "no show" else "showed"
-        if f.get("Lead ID") and f.get("Event Date & Time"):
-            by_lead.setdefault(f["Lead ID"].strip(), []).append((iso(f["Event Date & Time"]), "setter", out, None))
-    print(f"Airtable EOCs: {sum(map(len, by_lead.values()))} forms for {len(by_lead)} leads")
+        o = str(_one(f.get("Call Outcome (Booking)")) or "").strip().lower()
+        out = SETTER_OUTCOMES.get(o, "blank")  # explicit list: a new option is never silently a show (critic #6)
+        if o and o not in SETTER_OUTCOMES:
+            unknown[o] += 1
+        add(f, "setter", "Event Date & Time", out, None)
+    print(f"Airtable EOCs: {sum(map(len, by_lead.values()))} forms for {len(by_lead)} leads"
+          + (f", {skipped} skipped (unreadable lead/date)" if skipped else "")
+          + (f", WARNING unknown setter outcomes counted as blank: {dict(unknown)}" if unknown else ""))
     return by_lead
 
 
-def eoc_for(eocs, lead_id, call, next_call, tier):
+def eoc_for(eocs, lead_id, booked, call, next_call, tier):
     """The EOC form for THIS call: the right form for the tier (Closer EOC for A/B, Setter triage EOC for C; a setter's
-    own triage call with an A/B lead is not the closer call), same Close lead, filled from 3h before the call to 3 days
-    after, never at or after the person's next booked call; the first one filed wins."""
+    own triage call with an A/B lead is not the closer call) and the same Close lead.
+    Window: from 3h before the call (from the booking itself for a cancel / reschedule note, which can come in early,
+    critic #4) to 3 days after, never at or after the person's next live call. Among matches a filled form beats a
+    blank one, then the latest filed wins (a corrected resubmission replaces the first, critic #3)."""
     want = "setter" if tier == "C" else "closer"
     end = min(call + dt.timedelta(days=3), (next_call - dt.timedelta(hours=3)) if next_call else dt.datetime.max.replace(tzinfo=dt.timezone.utc))
-    hits = sorted(x for x in eocs.get(lead_id, []) if x[1] == want and call - dt.timedelta(hours=3) <= x[0] < end)
-    return hits[0] if hits else None
+
+    def starts(x):
+        return booked if x[3] in EXCLUDED else call - dt.timedelta(hours=3)
+    hits = [x for x in eocs.get(lead_id, []) if x[1] == want and starts(x) <= x[0] < end]
+    return max(hits, key=lambda x: (x[2] != "blank", x[0])) if hits else None
 
 
 def is_cancel(status, event=None):
@@ -297,8 +328,12 @@ def build_apps(events, by_ghl, ghl_status, now):
                 "tier": b.get("tier") or CALENDARS.get(ap.get("providerCalendarId"), "Other"),
                 "booked": b.get("booked") or ap.get("createdAtUtc"),
                 "call": call,
-                "cancel": (("prospect" if gid in a["prospect_cancel"] or b.get("cancel_by") == "prospect" else "self") if cancelled
-                           else ("prospect" if b.get("cancel_by") == "prospect" else None)),
+                # prospect = the lead cancelled (ROAS link or the closer's EOC); excluded = rescheduled / triage-DQ per
+                # the EOC; self = the team cancelled (a no-show). A form saying the call happened clears any cancel.
+                "cancel": (None if b.get("outcome") == "showed"
+                           else "prospect" if gid in a["prospect_cancel"] or b.get("cancel_by") == "prospect"
+                           else "excluded" if b.get("cancel_by") in EXCLUDED
+                           else "self" if cancelled or b.get("outcome") == "cancelled" else None),
                 "eoc": b.get("eoc"),
                 "confirmed": bool(b.get("confirmed")),
                 "outcome": b.get("outcome") or ("upcoming" if call and iso(call) > now else "no_eoc"),
@@ -324,12 +359,17 @@ def main():
                 events.append((e, tier))
     # per person: their latest LIVE booking (confirmation fields describe it) and, for every booking, when that
     # person booked next (bounds which Close opportunities belong to it)
-    latest_by_contact, next_booked, next_call, last_seen = {}, {}, {}, {}
+    latest_by_contact, next_booked, last_seen = {}, {}, {}
+    live_calls = collections.defaultdict(list)   # contact -> start times of their live (not cancelled) bookings
+    for e, _ in events:
+        if not is_cancel(e.get("appointmentStatus")):
+            live_calls[e.get("contactId")].append(iso(e["startTime"]))
+    # next live call AFTER this call (critic #7), not the next booking added
+    next_call = {e["id"]: min((t for t in live_calls[e.get("contactId")] if t > iso(e["startTime"])), default=None) for e, _ in events}
     for e, _ in sorted(events, key=lambda x: x[0]["dateAdded"]):
         c = e.get("contactId")
         if c in last_seen:
             next_booked[last_seen[c]] = iso(e["dateAdded"])
-            next_call[last_seen[c]] = iso(e["startTime"])
         last_seen[c] = e["id"]
         if not is_cancel(e.get("appointmentStatus")):
             latest_by_contact[c] = e["id"]
@@ -360,18 +400,23 @@ def main():
             rec["confirmed"] = bool((latest and (L.get(f"custom.{CONFIRMED_BOOKING}") == "Yes"
                                                  or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED"))
                                     or texted_yes(L["id"], booked, call))
-            form = eoc_for(eocs, L["id"], call, next_call.get(e["id"]), tier) if call < now else None
+            form = eoc_for(eocs, L["id"], booked, call, next_call.get(e["id"]), tier) if call < now else None
             if form:  # the EOC form itself is the truth (Airtable): Closer EOC for A/B, Setter (triage) EOC for C
                 _, rec["eoc"], out, by = form
-                if out == "excluded" or (cancelled and by == "prospect"):
-                    rec["outcome"], rec["cancel_by"] = "cancelled", by or "rescheduled"
+                if out == "showed":   # the form says the call happened: that wins, even over a GHL cancel (critic #2)
+                    rec["outcome"], rec["cancel_by"] = "showed", None
+                elif out == "excluded":
+                    rec["outcome"], rec["cancel_by"] = "cancelled", by
                 elif cancelled:
                     rec["cancel_by"] = "team"  # cancelled in GHL and the EOC doesn't say the lead did it
                 else:
-                    rec["outcome"] = "showed" if out == "showed" else "no_show"   # a blank form is a no-show (Nabeel)
-                    if by:
-                        rec["cancel_by"] = by
-            elif not cancelled:
+                    rec["outcome"] = "no_show"   # a no-show form, or a blank one (Nabeel: showed only if the EOC says so)
+                    rec["cancel_by"] = by
+            elif cancelled:
+                rec["cancel_by"] = "team"
+            elif tier == "C":  # setters file only the triage EOC; Close's opportunity reflects closers (critic #11)
+                rec["outcome"] = "no_eoc" if call < now else "upcoming"
+            else:
                 rec["outcome"] = outcome_of(L["id"], booked, call, now, next_booked.get(e["id"]))
                 if rec["outcome"] in ("showed", "no_show"):
                     rec["eoc"] = "close"   # the Closer EOC reached Close's opportunity but not (yet) Airtable

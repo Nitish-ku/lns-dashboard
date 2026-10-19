@@ -144,11 +144,15 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 #stale { margin-top: 16px; }
 
 @media (max-width: 560px) {
+  .kpi-foot { overflow-wrap: anywhere; }
+  .mast-top { flex-wrap: wrap; }
+  .meter-row { grid-template-columns: 1fr auto; }
+  .meter-row .meter { grid-column: 1 / -1; order: 3; }
+  th:first-child, td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; min-width: 140px; }
   .seg button { padding: 6px 9px; font-size: 12.5px; }
   .seg-label, .scope { display: none; }
   .filters .wrap { gap: 8px; }
   .kpi-value { font-size: 30px; }
-  .meter-row { grid-template-columns: 96px 1fr 80px; }
   .eyebrow { font-size: 10.5px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -301,13 +305,13 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   // a booking record: {tier, call, cancel: null|'self'|'prospect', confirmed, outcome}
   function callStatus(b, now) {
     if (!b) return "none";
-    if (b.cancel === "prospect") return "excluded";            // lead cancelled via ROAS: not a call we could show
+    if (b.cancel === "prospect" || b.cancel === "excluded") return "excluded";  // lead cancelled / rescheduled / DQ'd
     if (b.cancel === "self") return "no_show";                 // the team cancelled it: a no-show (Nabeel 2026-10-19)
     if (b.call && new Date(b.call) > now) return "upcoming";   // not happened yet: left out entirely
     return b.outcome === "showed" ? "showed" : "no_show";      // EOC says showed, else no-show (incl. team cancels)
   }
   function tally(rows, now) {
-    const t = { apps: 0, qualified: 0, dq: 0, booked: 0, confirmed: 0, bookedS: 0, shows: 0, eoc: 0, upcoming: 0 };
+    const t = { apps: 0, qualified: 0, dq: 0, booked: 0, confirmed: 0, bookedS: 0, shows: 0, eoc: 0, eocBase: 0, upcoming: 0 };
     for (const r of rows) {
       t.apps++; r.qualified ? t.qualified++ : t.dq++;
       const b = r.booking, st = callStatus(b, now);
@@ -318,7 +322,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       if (SHOW_TIERS.includes(b.tier)) {
         t.bookedS++;
         if (st === "showed") t.shows++;
-        if (b.eoc) t.eoc++;
+        if (!b.cancel && b.outcome !== "not_in_close") { t.eocBase++; if (b.eoc) t.eoc++; }
       }
     }
     return t;
@@ -346,12 +350,12 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   function renderKpis(rows, now) {
     const t = tally(rows, now);
     $("kpis").replaceChildren(
-      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.bookedS} booked · ${t.shows} showed`, "lead"),
+      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.shows} of ${t.bookedS} booked calls (Tier A, B, C)`, "lead"),
       kpi("Slot show rate", "soon", "needs calendar slot data"),
       kpi("Slot utilization", "soon", "needs calendar slot data"),
       kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`),
       kpi("Booked calls", String(t.booked), `${t.upcoming} still to come · ${fmtPct(pct(t.confirmed, t.booked))} confirmed`),
-      kpi("Shows", String(t.shows), `${t.eoc} of ${t.bookedS} with an EOC filed`));
+      kpi("Shows", String(t.shows), `${t.eoc} of ${t.eocBase} calls held have an EOC`));
   }
 
   /* ---------- dimension tables ---------- */
@@ -483,10 +487,11 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   /* ---------- baseline Oct 11-18, from the booking records ---------- */
   function renderBaseline() {
     const d = state.data, now = new Date(d.generated_at), end = new Date(d.forward_from);
-    const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
+    const EXCL = ["prospect", "rescheduled", "dq"];
+    const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && !EXCL.includes(b.cancel_by) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
     const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
     const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
-      e: rs.filter((b) => b.eoc).length });
+      e: rs.filter((b) => b.eoc && b.outcome !== "cancelled").length });
     const all = sum(bk);
     $("baseKpis").replaceChildren(
       kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead"),
@@ -515,8 +520,9 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     }
     t.append(thead, tb);
     const cancelled = bk.filter((b) => b.outcome === "cancelled").length;
-    $("baseWhy").textContent = `Read this as a paperwork number first: only ${all.e} of ${all.n} calls have an EOC filed. `
-      + `The other ${all.n - all.e - cancelled} past calls and ${cancelled} cancellations all count as no-shows under the black-and-white rule. `
+    const held = all.n - cancelled, missing = held - all.e;
+    $("baseWhy").textContent = `Read this as a paperwork number first: of ${held} calls that were held or due, only ${all.e} have an EOC filed. `
+      + `The ${missing} without one and the ${cancelled} the team cancelled all count as no-shows under the black-and-white rule. `
       + "The true show rate is somewhere above this, and the forward tracking will tighten it as EOCs get filed.";
   }
 
