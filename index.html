@@ -79,6 +79,7 @@ h2 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0; line-
 /* KPI tiles */
 .kpis { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
 @media (min-width: 760px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 760px) and (max-width: 1079px) { .kpis.four { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1080px) { .kpis.six { grid-template-columns: repeat(6, 1fr); } .kpis.four { grid-template-columns: repeat(4, 1fr); } }
 .kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 16px 18px 18px; min-height: 124px; display: flex; flex-direction: column; justify-content: space-between; }
 .kpi-label { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
@@ -111,6 +112,7 @@ td.num-strong { font-weight: 600; }
 td.dim { color: var(--muted); }
 tbody tr:hover td { background: var(--wash); }
 tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: 0; }
+tr.sep td { border-top: 1px solid var(--ink); padding-top: 14px; }
 .rate { display: inline-flex; align-items: center; gap: 10px; justify-content: flex-end; min-width: 168px; }
 .rate i { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
 .rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
@@ -134,7 +136,8 @@ tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom:
 .meter-row b { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
 
 .notes { display: grid; gap: 24px; grid-template-columns: 1fr; padding-bottom: 8px; }
-@media (min-width: 720px) { .notes { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 720px) { .notes { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1080px) { .notes { grid-template-columns: repeat(4, 1fr); } }
 .notes h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
 .notes p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
 footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; padding-bottom: 48px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
@@ -192,20 +195,29 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 </nav>
 
 <main class="wrap" id="app">
+  <section aria-labelledby="h-kind">
+    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kind">Showed calls by booking type</h2>
+      <p class="sec-dek">Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types. Fresh bookings are direct (Tier A, B, and any other closer calendar) plus setter-led. Recoveries count as calls but not as fresh bookings. Follow-ups aren't counted, and Tier C triage calls have their own rate. Cancelled by the lead and rescheduled calls are left out of the show rate; a call the team cancelled is a no-show. The tier filter doesn't apply here.</p></div>
+    <div class="kpis four" id="kindKpis"></div>
+    <div class="card" style="margin-top:12px"><div class="tbl-scroll"><table id="kindTbl"></table></div>
+      <div class="note" id="kindNote" hidden><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span id="kindWhy"></span></div></div>
+  </section>
+
   <section aria-labelledby="h-kpi">
-    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-kpi">Applications in this period</h2>
+    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-kpi">Applications in this period</h2>
       <p class="sec-dek">Grouped by when the application came in, so a call booked for a later week counts once it has happened. Black and white: a call counts as showed only when its EOC says so; every other past call, including ones the team cancelled, is a no-show. Calls still to come are left out.</p></div>
     <div class="kpis six" id="kpis"></div>
   </section>
 
   <section aria-labelledby="h-dims">
-    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-dims">What predicts a show</h2>
+    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-dims">What predicts a show</h2>
       <p class="sec-dek">One table per question and per factor. Click a column to sort. Small groups (under 5 booked calls) are greyed out: read them as hints, not results.</p></div>
     <div class="dims" id="dims"></div>
   </section>
 
   <section aria-labelledby="h-eoc">
-    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-eoc">EOC adherence</h2>
+    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-eoc">EOC adherence</h2>
       <p class="sec-dek">Shows only exist once the end-of-call form is filed in Airtable: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing or blank form counts as a no-show above, so missing forms drag the show rate down.</p></div>
     <div class="eoc">
       <div class="card"><div class="kpi-label">Past calls with an EOC filed</div><div class="eoc-big" id="eocBig">–</div><div class="dek" style="font-size:14px;margin:0" id="eocSub"></div></div>
@@ -214,7 +226,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   </section>
 
   <section aria-labelledby="h-base">
-    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
+    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
       <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only, as Nabeel set it. Same black-and-white rules; filters above don't apply here.</p></div>
     <div class="kpis four" id="baseKpis"></div>
     <div class="base-grid"><div class="card"><div class="tbl-scroll"><table id="baseTbl"></table></div>
@@ -225,11 +237,12 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   </section>
 
   <section aria-labelledby="h-notes">
-    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-notes">How it's counted</h2></div>
+    <div class="sec-head"><span class="sec-num">06</span><h2 id="h-notes">How it's counted</h2></div>
     <div class="notes">
       <div><h3>Applications and booked calls</h3><p>An application is a completed ROAS form. A booked call is an AI Launch Call on the GHL calendar whose time has passed; calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too; a call the team cancelled counts as a no-show.</p></div>
       <div><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.</p></div>
-      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
+      <div><h3>Booking types</h3><p>Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying "Closer Booking"). Recovery: a closer call booked again after the lead no-showed or the team cancelled. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this.</p></div>
+      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. The show rate covers closer calls (Tier A and B); Tier C triage calls have their own rate in section 01. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
     </div>
   </section>
 </main>
@@ -239,7 +252,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const SHOW_TIERS = ["A", "B", "C"];      // Closer EOC (A/B) and Setter EOC (C) both read from Airtable
+  const SHOW_TIERS = ["A", "B"];           // the show rate is closer calls; Tier C triage has its own (Nabeel, 2026-10-19)
   const BASE_TIERS = ["A", "B"];           // the Oct 11-18 baseline stays A+B (Nabeel, 2026-10-19)
   const SMALL_N = 5;
   const state = { period: "this", tier: "all", data: null, sorts: {} };
@@ -337,7 +350,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     if (state.period === "last") { to = etWeekStart(now); from = new Date(Math.max(fwd, etWeekStart(now, -1))); }
     let rows = (d.apps || []).filter((a) => a.completed && new Date(a.completed) >= from && new Date(a.completed) < to);
     if (state.tier !== "all") rows = rows.filter((a) => a.booking && a.booking.tier === state.tier);
-    return { rows, now, from, to: to.getTime() > 8e15 ? now : to };
+    return { rows, now, from, end: to, to: to.getTime() > 8e15 ? now : to };
   }
 
   /* ---------- KPI tiles ---------- */
@@ -350,7 +363,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   function renderKpis(rows, now) {
     const t = tally(rows, now);
     $("kpis").replaceChildren(
-      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.shows} of ${t.bookedS} booked calls (Tier A, B, C)`, "lead"),
+      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.shows} of ${t.bookedS} booked calls (Tier A and B)`, "lead"),
       kpi("Slot show rate", "soon", "needs calendar slot data"),
       kpi("Slot utilization", "soon", "needs calendar slot data"),
       kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`),
@@ -447,7 +460,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     if (title === "Tier" && r.k !== "Total") { const s = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(r.k); s.append(i, document.createTextNode(["A", "B", "C"].includes(r.k) ? `Tier ${r.k}` : r.k)); first.appendChild(s); }
     else first.textContent = r.k;
     tr.appendChild(first);
-    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–", not a misleading 0
+    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–" (its rate is in section 01)
     const showsTxt = r.t.bookedS === 0 && r.t.booked > 0 ? "–" : String(r.shows);
     for (const v of [r.apps, r.booked, r.confirmed, showsTxt]) tr.appendChild(el("td", {}, String(v)));
     const p1 = el("td", { class: "rule dim" }, fmtPct(r.pApps)); tr.appendChild(p1);
@@ -484,11 +497,93 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed (Closer EOC for A and B, Setter EOC for C). Cancelled calls aren't counted here.` : "No call in this period has happened yet.";
   }
 
+  /* ---------- showed calls by booking type (Nabeel's sheet), from the booking records, by call time ---------- */
+  const FRESH = ["direct", "setter_led"];
+  const KIND_ROWS = [   // [label, which bookings, tier swatch, row style, hide when empty]
+    ["Tier A direct", (b) => b.kind === "direct" && b.tier === "A", "A"],
+    ["Tier B direct", (b) => b.kind === "direct" && b.tier === "B", "B"],
+    ["Other calendars direct", (b) => b.kind === "direct" && !["A", "B"].includes(b.tier), null, "", true],   // only when there are any
+    ["Setter-led", (b) => b.kind === "setter_led"],
+    ["Fresh bookings", (b) => FRESH.includes(b.kind), null, "total"],
+    ["Recovery (rebooked after a no-show)", (b) => b.kind === "recovery"],
+    ["Overall (fresh + recovery)", (b) => FRESH.includes(b.kind) || b.kind === "recovery", null, "total"],
+    ["Tier C triage calls", (b) => b.kind === "triage", "C", "sep"],
+    ["Follow-ups (not counted)", (b) => b.kind === "follow_up", null, "small-n"],
+  ];
+  // one booking record -> what it counts as. Same black-and-white rule as above: showed only when the EOC says so.
+  function bookingStatus(b, now) {
+    if (b.cancel_by === "prospect") return "lead_cancel";
+    if (b.cancel_by === "rescheduled") return "rescheduled";
+    if (b.cancel_by === "dq") return "dq";                   // triage-disqualified: not a closer call at all
+    if (b.outcome === "cancelled") return "no_show";         // the team cancelled it: a no-show, even before its time
+    if (new Date(b.call) > now) return "upcoming";
+    return b.outcome === "showed" ? "showed" : "no_show";    // incl. a call the team cancelled, or no EOC
+  }
+  function kindTally(rs, now) {
+    const t = { due: 0, lead_cancel: 0, rescheduled: 0, counted: 0, confirmed: 0, shows: 0, upcoming: 0 };
+    for (const b of rs) {
+      const st = bookingStatus(b, now);
+      if (st === "upcoming") { t.upcoming++; continue; }
+      if (st === "dq") continue;
+      t.due++;
+      if (st === "lead_cancel" || st === "rescheduled") { t[st]++; continue; }
+      t.counted++;
+      if (b.confirmed) t.confirmed++;
+      if (st === "showed") t.shows++;
+    }
+    return t;
+  }
+  function rateCell(n, d, small) {
+    const td = el("td"), w = el("span", { class: "rate" + (small ? " small-n" : "") }), v = pct(n, d);
+    if (v != null) { const bar = el("i"), f = el("span"); f.style.width = Math.min(100, v) + "%"; bar.appendChild(f); w.appendChild(bar); }
+    w.appendChild(el("b", {}, fmtPct(v)));
+    if (v != null) w.appendChild(el("em", { class: "frac" }, `${n}/${d}`));
+    td.appendChild(w); return td;
+  }
+  function renderKinds(from, to, now) {
+    const d = state.data, fwd = new Date(d.forward_from);
+    const bk = d.bookings.filter((b) => b.kind && new Date(b.call) >= from && new Date(b.call) >= fwd && new Date(b.call) < to);
+    const T = Object.fromEntries(KIND_ROWS.map(([label, f]) => [label, kindTally(bk.filter(f), now)]));
+    const fresh = T["Fresh bookings"], all = T["Overall (fresh + recovery)"], tri = T["Tier C triage calls"];
+    $("kindKpis").replaceChildren(
+      kpi("Fresh booking show rate", fmtPct(pct(fresh.shows, fresh.counted)), `${fresh.shows} of ${fresh.counted} calls · direct + setter-led`, "lead"),
+      kpi("Overall show rate", fmtPct(pct(all.shows, all.counted)), `${all.shows} of ${all.counted} calls · incl. recoveries`),
+      kpi("Tier C triage show rate", fmtPct(pct(tri.shows, tri.counted)), `${tri.shows} of ${tri.counted} setter calls`),
+      kpi("Confirmation rate", fmtPct(pct(fresh.confirmed, fresh.counted)), `${fresh.confirmed} of ${fresh.counted} fresh calls confirmed`));
+    const t = $("kindTbl"); t.replaceChildren();
+    const thead = el("thead"), hr = el("tr");
+    ["Booking type", "Calls due", "Cancelled by lead", "Rescheduled", "Counted", "Confirmed", "Shows", "Show rate", "Confirm rate", "Cancel rate", "Reschedule rate"]
+      .forEach((h, i) => hr.appendChild(el("th", { scope: "col", class: i === 7 ? "rule" : "" }, h)));
+    thead.appendChild(hr);
+    const tb = el("tbody");
+    for (const [label, , tier, cls, optional] of KIND_ROWS) {
+      const s = T[label];
+      if (optional && !s.due && !s.upcoming) continue;
+      const tr = el("tr", cls ? { class: cls } : {}), td = el("td");
+      if (tier) { const l = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(tier); l.append(i, document.createTextNode(label)); td.appendChild(l); }
+      else td.textContent = label;
+      tr.appendChild(td);
+      for (const v of [s.due, s.lead_cancel, s.rescheduled, s.counted, s.confirmed, s.shows]) tr.appendChild(el("td", {}, String(v)));
+      const small = s.counted < SMALL_N;
+      const sr = rateCell(s.shows, s.counted, small); sr.classList.add("rule"); tr.appendChild(sr);
+      tr.appendChild(el("td", { class: small ? "small-n" : "" }, fmtPct(pct(s.confirmed, s.counted))));
+      tr.appendChild(el("td", { class: "dim" }, fmtPct(pct(s.lead_cancel, s.due))));
+      tr.appendChild(el("td", { class: "dim" }, fmtPct(pct(s.rescheduled, s.due))));
+      tb.appendChild(tr);
+    }
+    t.append(thead, tb);
+    const up = all.upcoming + tri.upcoming;
+    $("kindNote").hidden = false;
+    if (!d.bookings.some((b) => b.kind)) { $("kindWhy").textContent = "Booking types arrive with the next data build."; return; }
+    $("kindWhy").textContent = (bk.length ? `${up} call${up === 1 ? "" : "s"} in this period ${up === 1 ? "is" : "are"} still to come and not counted yet. ` : "No calls in this period yet. ")
+      + "Setter-led and recovery are worked out from each lead's booking history until setters fill in Booking Type on the triage form; once they do, the form decides.";
+  }
+
   /* ---------- baseline Oct 11-18, from the booking records ---------- */
   function renderBaseline() {
     const d = state.data, now = new Date(d.generated_at), end = new Date(d.forward_from);
     const EXCL = ["prospect", "rescheduled", "dq"];
-    const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && !EXCL.includes(b.cancel_by) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
+    const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && b.kind !== "follow_up" && !EXCL.includes(b.cancel_by) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
     const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
     const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
       e: rs.filter((b) => b.eoc && b.outcome !== "cancelled").length });
@@ -535,14 +630,16 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   }
 
   function render() {
-    const { rows, now, from, to } = slice();
+    const { rows, now, from, to, end } = slice();
     staleBanner();
     renderKpis(rows, now);
     renderDims(rows, now);
     renderEoc(rows, now);
+    // by call time: "this week" ends Sunday night (calls still to come are counted as such), "since Oct 19" stays open
+    renderKinds(from, state.period === "this" ? etWeekStart(now, 1) : end, now);
     renderBaseline();
     const d = state.data;
-    $("scope").textContent = `Applications ${niceDate(from.toISOString())} – ${niceDate(new Date(Math.min(to, now) - 1).toISOString())}`;
+    $("scope").textContent = `${niceDate(from.toISOString())} – ${niceDate(new Date(Math.min(to, now) - 1).toISOString())}`;
     $("meta").replaceChildren(...[["Tracking from", "Mon Oct 19"], ["Baseline", "Oct 11 – 18"], ["Updated", niceDate(d.generated_at, true)]]
       .map(([k, v]) => { const s = el("span"); s.append(el("b", {}, k + " "), document.createTextNode(v)); return s; }));
   }
@@ -557,7 +654,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
-  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar · Close (Closer EOC outcome, confirmations)"), el("span", {}, "Rebuilt daily at 7am ET · no names, emails or phone numbers stored"));
+  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar · Airtable (Closer and Setter EOC) · Close (confirmations)"), el("span", {}, "Rebuilt daily at 7am ET · no names, emails or phone numbers stored"));
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })

@@ -14,6 +14,10 @@ Definitions
   showed     an opportunity moved to a post-call status by the EOC form (follow-up, deposit, won, lost, disqualified)
   no_show    an opportunity in "No Show" (EOC: client ghosted)
   no_eoc     the call time has passed and the opportunity still says "Booked Meeting": the EOC was never filed
+  kind       Nabeel's booking types (voice note 2026-10-19): direct (ROAS booked A/B straight onto a closer calendar),
+             setter_led (a setter turned a Tier C or unbooked lead into a closer call), recovery (a closer call booked
+             again after the lead no-showed: not a fresh booking), follow_up (a later call after one that showed: not
+             counted), triage (Tier C setter call, its own show rate). See classify().
 
 Env: CLOSE_API_KEY, GHL_API_KEY, GHL_LOCATION_ID (Vercel env vars, or a local .env, see .env.example).
 Run: python scripts/build_data.py  (Vercel runs it as the build command on every deploy)
@@ -48,6 +52,8 @@ CALENDARS = {                          # GHL calendar id -> tier
     "9S4m6arZatkxuuHY4WRO": "Other",   # AI Launch Call with Nabeel
     "cpCBSC7dn0qhfvfFd7gQ": "Other",   # AI Launch Call with Aman
 }
+# the closers' own follow-up links (Nabeel 2026-10-19): every booking on these is a follow-up, never a fresh booking
+FOLLOW_UP_CALENDARS = {"9S4m6arZatkxuuHY4WRO", "cpCBSC7dn0qhfvfFd7gQ"}   # ai-launch-call-with-nabeel / -with-aman
 CONFIRMED_BOOKING = "cf_qm7w8fA9kw6mBm8TuyyGP9osqINC3XV7i5a9FMEyzAM"
 LNS_CONFIRMATION = "cf_4zkkpwIWyyfZMUcOBOl7X7kjSNGj1l1MnPZjLaDmcxZ"
 SHOWED = {"AP Follow-up", "DC Follow-up", "AI Partner Won", "DigitalCollege Won", "Deposit", "Lost", "Disqualified"}
@@ -156,16 +162,17 @@ def _one(v):
 
 
 def load_eocs():
-    """EOC forms by Close lead id: [(filed_at, form, outcome, cancel_by)].
+    """EOC forms by Close lead id: [(filed_at, form, outcome, cancel_by)], and the setter forms that booked a closer call
+    by lead id: [(filed_at, booking_type)] (booking_type "setter_led" | "recovery" | None when the setter left it blank).
     The forms' "call time" is really when the form was filled in (minutes to hours after the call).
     outcome: showed | no_show | excluded (lead cancelled, or rescheduled: the new booking takes over) | blank."""
     if not os.environ.get("AIRTABLE_TOKEN"):
         if os.environ.get("VERCEL"):
             sys.exit("AIRTABLE_TOKEN is not set: add the read-only Airtable token in Vercel")
         print("note: no AIRTABLE_TOKEN, EOC outcomes come from Close only")
-        return {}
-    since = (iso(BASELINE) - dt.timedelta(days=2)).strftime("%Y-%m-%d")
-    by_lead, skipped, unknown = {}, 0, collections.Counter()
+        return {}, {}
+    since = (iso(BASELINE) - dt.timedelta(days=37)).strftime("%Y-%m-%d")
+    by_lead, setter_books, skipped, unknown = {}, {}, 0, collections.Counter()
 
     def add(f, form, when_field, out, by):
         nonlocal skipped
@@ -191,17 +198,31 @@ def load_eocs():
             out, by = ("showed", None) if _one(f.get("Call Outcome")) else ("blank", None)
         add(f, "closer", "Date & Time of Call", out, by)
     for r in airtable(SETTER_EOC, f"IS_AFTER({{Event Date & Time}}, '{since}')",
-                      ["Lead ID", "Event Date & Time", "Call Outcome (Booking)"]):
+                      ["Lead ID", "Event Date & Time", "Call Outcome (Booking)", "Call Outcome (Dial)", "Booking Type"]):
         f = r["fields"]
         o = str(_one(f.get("Call Outcome (Booking)")) or "").strip().lower()
+        bt = str(_one(f.get("Booking Type")) or "").strip().lower()
+        bt = {"setter-led booking": "setter_led", "recovery booking": "recovery"}.get(bt, bt)
+        if bt and bt not in ("setter_led", "recovery"):
+            unknown["booking type: " + bt] += 1   # a new option is never silently a setter-led booking (critic round 4, #10)
+            bt = ""
+        if bt or "closer booking" in (o, str(_one(f.get("Call Outcome (Dial)")) or "").strip().lower()):
+            try:
+                lead, when = _one(f.get("Lead ID")), _one(f.get("Event Date & Time"))
+                if lead and when:
+                    setter_books.setdefault(str(lead).strip(), []).append(
+                        (iso(str(when)), bt or None))
+            except Exception:  # noqa: BLE001
+                skipped += 1
         out = SETTER_OUTCOMES.get(o, "blank")  # explicit list: a new option is never silently a show (critic #6)
         if o and o not in SETTER_OUTCOMES:
             unknown[o] += 1
         add(f, "setter", "Event Date & Time", out, None)
     print(f"Airtable EOCs: {sum(map(len, by_lead.values()))} forms for {len(by_lead)} leads"
           + (f", {skipped} skipped (unreadable lead/date)" if skipped else "")
-          + (f", WARNING unknown setter outcomes counted as blank: {dict(unknown)}" if unknown else ""))
-    return by_lead
+          + (f", WARNING unknown setter values ignored: {dict(unknown)}" if unknown else "")
+          + f", {sum(map(len, setter_books.values()))} setter closer-bookings")
+    return by_lead, setter_books
 
 
 def eoc_for(eocs, lead_id, booked, call, next_call, tier, prev_call=None):
@@ -221,6 +242,81 @@ def eoc_for(eocs, lead_id, booked, call, next_call, tier, prev_call=None):
         return early if x[3] in EXCLUDED else call - dt.timedelta(hours=3)
     hits = [x for x in eocs.get(lead_id, []) if x[1] == want and starts(x) <= x[0] < end]
     return max(hits, key=lambda x: (x[2] != "blank", x[0])) if hits else None
+
+
+CLOSER_TIERS = ("A", "B", "Other")   # closer calendars; C is the setters' triage calendar
+
+
+def by_person(x):
+    """Booked by someone using the booking link, not by ROAS. A booking GHL doesn't say anything about counts as ROAS."""
+    return bool(x["source"]) and x["source"] != "third_party"
+
+
+def prior_status(p, forms):
+    """What became of an earlier closer booking: showed | excused (lead cancelled / rescheduled / DQ) | failed (no-show,
+    missing EOC, team cancel: Nabeel counts those as no-shows) | unknown. A booking from before the tracked period has
+    no record, so only its own Closer EOC can tell; without one it is unknown and never makes a later call a recovery
+    (critic round 4, #1)."""
+    r = p["rec"]
+    if r is not None:
+        if r.get("outcome") == "showed":
+            return "showed"
+        if r.get("cancel_by") in EXCLUDED:
+            return "excused"
+        return "unknown" if r.get("outcome") in ("upcoming", "not_in_close") else "failed"
+    mine = [f for f in forms if p["call"] - dt.timedelta(hours=3) <= f[0] < p["call"] + dt.timedelta(days=3)]
+    if not mine:
+        return "unknown"
+    o = max(mine, key=lambda f: (f[1] != "blank", f[0]))[1]
+    return {"showed": "showed", "excluded": "excused", "no_show": "failed"}.get(o, "unknown")
+
+
+def classify(x, history, forms, tied, memo):
+    """Nabeel's booking type for one booking `x` (dict: id, tier, booked, call, source, cancelled, rec), from the same
+    person's other GHL bookings (`history`, oldest first, incl. ones from before the tracked period with rec None), their
+    Closer EOCs (`forms`: [(filed, outcome, cancel_by)]) and the setter forms tied to each booking (`tied`: each form
+    belongs to ONE booking, the first closer booking made from a day before it to 14 days after). Tier C is triage, the follow-up calendars are follow_up. Else:
+      1. the setter's own Booking Type on the form tied to this booking (the latest filled one)
+      2. follow_up   the person already had a closer call that showed before this was booked
+      3. recovery    an earlier closer call of theirs, due before this was booked, didn't happen
+      4. a closer booking cancelled before it was due and replaced by this one keeps its type (lead cancel /
+         reschedule link, ROAS rebooking, or a history we can't vouch for); only the team cancelling and a person
+         booking it again is a recovery (the cancelled one already counts as a no-show)
+      5. setter_led  a person (not ROAS) booked it, the lead had a (not cancelled) Tier C triage call first, or a setter
+                     form saying "Closer Booking" is tied to it
+      6. direct      everything else: ROAS booked the lead straight onto a closer calendar"""
+    if x["id"] in memo:
+        return memo[x["id"]]
+    mine = sorted(tied.get(x["id"], []), key=lambda f: f[0])
+    typed = [bt for _, bt in mine if bt]
+    closer = [p for p in history if p["id"] != x["id"] and p["tier"] in CLOSER_TIERS]
+    due = [p for p in closer if p["call"] < x["booked"]]
+    # cancelled before it was due (in GHL, or through the ROAS link while GHL still says booked: critic round 5, #3)
+    moved = [p for p in closer if (p["cancelled"] or (p["rec"] or {}).get("outcome") == "cancelled")
+             and p["booked"] < x["booked"] <= p["call"]]
+    if x["tier"] == "C":
+        kind = "triage"
+    elif x.get("cal") in FOLLOW_UP_CALENDARS:
+        kind = "follow_up"
+    elif typed:
+        kind = typed[-1]
+    elif any(t < x["booked"] and o == "showed" for t, o, _ in forms) or any(prior_status(p, forms) == "showed" for p in due):
+        kind = "follow_up"
+    elif any(prior_status(p, forms) == "failed" for p in due):
+        kind = "recovery"
+    elif moved:
+        m = moved[-1]
+        if prior_status(m, forms) == "failed" and by_person(x):
+            kind = "recovery"   # the team cancelled it (a no-show) and a person booked it again
+        else:   # lead cancel / reschedule, a ROAS rebook, or history nobody can vouch for (critic round 5, #1): keep its type
+            # recursion only goes to an earlier booking (m was booked before x), so it ends
+            kind = (m["rec"] or {}).get("kind") or classify(m, history, forms, tied, memo)
+    elif by_person(x) or mine or any(p["tier"] == "C" and not p["cancelled"] and p["call"] < x["booked"] for p in history):
+        kind = "setter_led"
+    else:
+        kind = "direct"
+    memo[x["id"]] = kind
+    return kind
 
 
 def is_cancel(status, event=None):
@@ -322,10 +418,14 @@ def build_apps(events, by_ghl, ghl_status, now):
         }
         if a["appts"]:
             # the live booking (critic #3): one nobody cancelled, most recent event first; a cancelled one only if all are
+            def lead_cancelled(g):   # the booking record decides when there is one (ROAS cancel before the call, no EOC)
+                r = by_ghl.get(g)
+                return r.get("cancel_by") == "prospect" if r else g in a["prospect_cancel"]
+
             def dead(g):
                 if (by_ghl.get(g) or {}).get("outcome") == "showed":
                     return False  # the EOC says the call happened, whatever GHL says
-                return g in a["prospect_cancel"] or is_cancel(ghl_status.get(g))
+                return lead_cancelled(g) or is_cancel(ghl_status.get(g)) or (by_ghl.get(g) or {}).get("outcome") == "cancelled"
             gid = sorted(a["appts"], key=lambda g: (not dead(g), a["seen"].get(g, "")))[-1]
             ap = a["appts"][gid]
             b = by_ghl.get(gid) or {}
@@ -340,7 +440,7 @@ def build_apps(events, by_ghl, ghl_status, now):
                 # prospect = the lead cancelled (ROAS link or the closer's EOC); excluded = rescheduled / triage-DQ per
                 # the EOC; self = the team cancelled (a no-show). A form saying the call happened clears any cancel.
                 "cancel": (None if b.get("outcome") == "showed"
-                           else "prospect" if gid in a["prospect_cancel"] or b.get("cancel_by") == "prospect"
+                           else "prospect" if lead_cancelled(gid)
                            else "excluded" if b.get("cancel_by") in EXCLUDED
                            else "self" if cancelled or b.get("outcome") == "cancelled" else None),
                 "eoc": b.get("eoc"),
@@ -359,13 +459,14 @@ def main():
         prev = {r["id"]: r for r in json.load(open(OUT, encoding="utf8")).get("bookings", [])}
     now = dt.datetime.now(dt.timezone.utc)
     base = iso(BASELINE)
-    lo, hi = int((base - dt.timedelta(days=2)).timestamp() * 1000), int((now + dt.timedelta(days=120)).timestamp() * 1000)
+    # a month before the baseline too: older bookings are never counted, only read as a person's history (booking type)
+    lo, hi = int((base - dt.timedelta(days=35)).timestamp() * 1000), int((now + dt.timedelta(days=120)).timestamp() * 1000)
     loc = env("GHL_LOCATION_ID")
-    events = []
+    events, older = [], []
     for cid, tier in CALENDARS.items():
         for e in ghl("/calendars/events", {"locationId": loc, "calendarId": cid, "startTime": lo, "endTime": hi}).get("events", []):
-            if e.get("dateAdded") and iso(e["dateAdded"]) >= base:
-                events.append((e, tier))
+            if e.get("dateAdded"):
+                (events if iso(e["dateAdded"]) >= base else older).append((e, tier))
     # per person: their latest LIVE booking (confirmation fields describe it) and, for every booking, when that
     # person booked next (bounds which Close opportunities belong to it)
     latest_by_contact, next_booked, last_seen = {}, {}, {}
@@ -387,7 +488,7 @@ def main():
         if not is_cancel(e.get("appointmentStatus")):
             latest_by_contact[c] = e["id"]
 
-    eocs = load_eocs()
+    eocs, setter_books = load_eocs()
 
     def one(item):
         e, tier = item
@@ -395,8 +496,9 @@ def main():
         cancelled = is_cancel(e.get("appointmentStatus"))
         rid = rid_of(e["id"])  # GHL ids stay private
         old = prev.get(rid)
-        if old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled")):
-            return old, False, e["id"]
+        settled = old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled"))
+        if settled and old.get("kind"):
+            return old, False, e["id"], None
         rec = {"id": rid, "booked": booked.strftime("%Y-%m-%dT%H:%M:%SZ"), "call": call.strftime("%Y-%m-%dT%H:%M:%SZ"),
                "tier": tier, "confirmed": False, "outcome": "cancelled" if cancelled else "unknown", "in_close": False,
                "eoc": None, "cancel_by": None}
@@ -404,6 +506,8 @@ def main():
         email = (contact.get("email") or "").strip().lower()
         lead = close("/lead/", {"query": f'email:"{email}"', "_limit": 1,
                                 "_fields": f"id,custom.{CONFIRMED_BOOKING},custom.{LNS_CONFIRMATION}"})["data"] if email else []
+        if settled:   # its outcome stays as it was; the lead id is only needed for the booking type
+            return old, False, e["id"], (lead[0]["id"] if lead else None)
         if lead:
             L = lead[0]
             rec["in_close"] = True
@@ -435,16 +539,55 @@ def main():
                     rec["eoc"] = "close"   # the Closer EOC reached Close's opportunity but not (yet) Airtable
         elif not cancelled:
             rec["outcome"] = "not_in_close"
-        return rec, True, e["id"]
+        return rec, True, e["id"], (lead[0]["id"] if lead else None)
 
     # 5 bookings at a time: fast enough for a Vercel build, gentle on Close's rate limit (429s are retried)
     with cf.ThreadPoolExecutor(5) as ex:
         results = list(ex.map(one, sorted(events, key=lambda x: x[0]["dateAdded"])))
-    out = [r for r, _, _ in results]
-    asked = sum(1 for _, a, _ in results if a)
-    by_ghl = {gid: r for r, _, gid in results}
+    out = [r for r, _, _, _ in results]
+    asked = sum(1 for _, a, _, _ in results if a)
+    by_ghl = {gid: r for r, _, gid, _ in results}
+    lead_of = {gid: lid for _, _, gid, lid in results}
     ghl_status = {e["id"]: (e.get("appointmentStatus") or "").lower() for e, _ in events}
-    apps = build_apps(load_roas_events(), by_ghl, ghl_status, now)
+    roas = load_roas_events()
+    # a cancel through the ROAS link is the lead's own: left out of the show rate on the booking records too
+    for ev in roas:
+        ap = ev.get("appointment") or {}
+        r, when = by_ghl.get(ap.get("providerBookingId")), ev.get("createdAtUtc") or ev.get("receivedAt")
+        if (r and is_cancel(ap.get("status"), ev.get("event")) and r["outcome"] != "showed" and not r.get("eoc")
+                and when and iso(when) < iso(r["call"]) and iso(r["call"]) >= iso(FORWARD_FROM)):
+            r["outcome"], r["cancel_by"] = "cancelled", "prospect"
+
+    # booking type per person, oldest first (a settled record keeps the type it was given)
+    per_contact = collections.defaultdict(list)
+    for e, tier in sorted(older + events, key=lambda x: x[0]["dateAdded"]):
+        per_contact[e.get("contactId")].append({
+            "id": e["id"], "tier": tier, "cal": e.get("calendarId"), "booked": iso(e["dateAdded"]), "call": iso(e["startTime"]),
+            "source": (e.get("createdBy") or {}).get("source"), "cancelled": is_cancel(e.get("appointmentStatus")),
+            "rec": by_ghl.get(e["id"])})
+    memo, no_lead = {}, 0
+    for c, hist in per_contact.items():
+        if c is None:   # no contact: can't be linked to anyone's history (critic round 4, #8)
+            for h in hist:
+                if h["rec"] is not None and not h["rec"].get("kind"):
+                    h["rec"]["kind"] = "triage" if h["tier"] == "C" else "direct"
+            continue
+        lid = next((lead_of[h["id"]] for h in hist if lead_of.get(h["id"])), None)
+        forms = [(t, o, by) for t, form, o, by in eocs.get(lid, []) if form == "closer"] if lid else []
+        tied = collections.defaultdict(list)
+        closer_bk = [h for h in hist if h["tier"] in CLOSER_TIERS and h["cal"] not in FOLLOW_UP_CALENDARS]
+        for t, bt in sorted(setter_books.get(lid, []) if lid else []):
+            near = lambda lag: next((h for h in closer_bk if t - lag <= h["booked"] <= t + dt.timedelta(days=14)), None)  # noqa: E731
+            target = near(dt.timedelta(hours=1)) or near(dt.timedelta(days=1))
+            if target:
+                tied[target["id"]].append((t, bt))
+        for h in hist:
+            if h["rec"] is not None and not h["rec"].get("kind"):
+                no_lead += not lid
+                h["rec"]["kind"] = classify(h, hist, forms, tied, memo)
+    print("booking types:", str(dict(collections.Counter(r.get("kind") for r in out)))
+          + (f" ({no_lead} typed without a Close lead: GHL history only)" if no_lead else ""))
+    apps = build_apps(roas, by_ghl, ghl_status, now)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "baseline": BASELINE, "lns_live": LNS_LIVE,
                "forward_from": FORWARD_FROM, "bookings": out, "apps": apps}, open(OUT, "w", encoding="utf8"), indent=1)
