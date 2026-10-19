@@ -86,7 +86,10 @@ def http(url, headers, tries=5):
             if e.code in (429, 500, 502, 503, 504) and attempt < tries - 1:
                 wait = 2 + attempt * 3
                 if e.code == 429 and "airtable.com" in url:
-                    wait = max(31, int(e.headers.get("Retry-After") or 0))  # Airtable locks the base for 30 s
+                    try:
+                        wait = max(31, int(e.headers.get("Retry-After") or 0))  # Airtable locks the base for 30 s
+                    except ValueError:  # an HTTP-date instead of seconds
+                        wait = 31
                 time.sleep(wait)
                 continue
             raise SystemExit(f"GET {url.split('?')[0]} -> {e.code}")
@@ -201,7 +204,7 @@ def load_eocs():
     return by_lead
 
 
-def eoc_for(eocs, lead_id, booked, call, next_call, tier):
+def eoc_for(eocs, lead_id, booked, call, next_call, tier, prev_call=None):
     """The EOC form for THIS call: the right form for the tier (Closer EOC for A/B, Setter triage EOC for C; a setter's
     own triage call with an A/B lead is not the closer call) and the same Close lead.
     Window: from 3h before the call (from the booking itself for a cancel / reschedule note, which can come in early,
@@ -210,8 +213,12 @@ def eoc_for(eocs, lead_id, booked, call, next_call, tier):
     want = "setter" if tier == "C" else "closer"
     end = min(call + dt.timedelta(days=3), (next_call - dt.timedelta(hours=3)) if next_call else dt.datetime.max.replace(tzinfo=dt.timezone.utc))
 
+    # an early cancel / reschedule note may come in from the booking on, but never while it could still belong to the
+    # person's previous call (its 3-day window), so one note never excuses two bookings (critic round 3, b1)
+    early = max(booked, prev_call + dt.timedelta(days=3)) if prev_call else booked
+
     def starts(x):
-        return booked if x[3] in EXCLUDED else call - dt.timedelta(hours=3)
+        return early if x[3] in EXCLUDED else call - dt.timedelta(hours=3)
     hits = [x for x in eocs.get(lead_id, []) if x[1] == want and starts(x) <= x[0] < end]
     return max(hits, key=lambda x: (x[2] != "blank", x[0])) if hits else None
 
@@ -316,6 +323,8 @@ def build_apps(events, by_ghl, ghl_status, now):
         if a["appts"]:
             # the live booking (critic #3): one nobody cancelled, most recent event first; a cancelled one only if all are
             def dead(g):
+                if (by_ghl.get(g) or {}).get("outcome") == "showed":
+                    return False  # the EOC says the call happened, whatever GHL says
                 return g in a["prospect_cancel"] or is_cancel(ghl_status.get(g))
             gid = sorted(a["appts"], key=lambda g: (not dead(g), a["seen"].get(g, "")))[-1]
             ap = a["appts"][gid]
@@ -364,8 +373,12 @@ def main():
     for e, _ in events:
         if not is_cancel(e.get("appointmentStatus")):
             live_calls[e.get("contactId")].append(iso(e["startTime"]))
-    # next live call AFTER this call (critic #7), not the next booking added
+    # next live call AFTER this call (critic #7), not the next booking added; previous call (any booking) BEFORE it
     next_call = {e["id"]: min((t for t in live_calls[e.get("contactId")] if t > iso(e["startTime"])), default=None) for e, _ in events}
+    all_calls = collections.defaultdict(list)
+    for e, _ in events:
+        all_calls[e.get("contactId")].append(iso(e["startTime"]))
+    prev_call = {e["id"]: max((t for t in all_calls[e.get("contactId")] if t < iso(e["startTime"])), default=None) for e, _ in events}
     for e, _ in sorted(events, key=lambda x: x[0]["dateAdded"]):
         c = e.get("contactId")
         if c in last_seen:
@@ -400,7 +413,7 @@ def main():
             rec["confirmed"] = bool((latest and (L.get(f"custom.{CONFIRMED_BOOKING}") == "Yes"
                                                  or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED"))
                                     or texted_yes(L["id"], booked, call))
-            form = eoc_for(eocs, L["id"], booked, call, next_call.get(e["id"]), tier) if call < now else None
+            form = eoc_for(eocs, L["id"], booked, call, next_call.get(e["id"]), tier, prev_call.get(e["id"])) if call < now else None
             if form:  # the EOC form itself is the truth (Airtable): Closer EOC for A/B, Setter (triage) EOC for C
                 _, rec["eoc"], out, by = form
                 if out == "showed":   # the form says the call happened: that wins, even over a GHL cancel (critic #2)
