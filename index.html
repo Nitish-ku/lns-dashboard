@@ -138,6 +138,8 @@ tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom:
 .notes h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
 .notes p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
 footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; padding-bottom: 48px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+/* grid children may shrink below their content, so a wide table scrolls INSIDE its card instead of widening the page */
+.base-grid > *, .dims > *, .eoc > *, .kpis > *, .notes > * { min-width: 0; }
 .loading { opacity: .45; transition: opacity .2s; }
 #stale { margin-top: 16px; }
 
@@ -200,7 +202,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 
   <section aria-labelledby="h-eoc">
     <div class="sec-head"><span class="sec-num">03</span><h2 id="h-eoc">EOC adherence</h2>
-      <p class="sec-dek">Shows only exist once the end-of-call form is filed: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing form counts as a no-show above, so missing forms drag the show rate down.</p></div>
+      <p class="sec-dek">Shows only exist once the end-of-call form is filed in Airtable: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing or blank form counts as a no-show above, so missing forms drag the show rate down.</p></div>
     <div class="eoc">
       <div class="card"><div class="kpi-label">Past calls with an EOC filed</div><div class="eoc-big" id="eocBig">–</div><div class="dek" style="font-size:14px;margin:0" id="eocSub"></div></div>
       <div class="card"><div class="kpi-label" style="margin-bottom:16px">By tier and form</div><div class="meters" id="meters"></div></div>
@@ -209,7 +211,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 
   <section aria-labelledby="h-base">
     <div class="sec-head"><span class="sec-num">04</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
-      <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only (Tier C had too few EOC forms). Same black-and-white rules; filters above don't apply here.</p></div>
+      <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only, as Nabeel set it. Same black-and-white rules; filters above don't apply here.</p></div>
     <div class="kpis four" id="baseKpis"></div>
     <div class="base-grid"><div class="card"><div class="tbl-scroll"><table id="baseTbl"></table></div>
       <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -223,7 +225,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     <div class="notes">
       <div><h3>Applications and booked calls</h3><p>An application is a completed ROAS form. A booked call is an AI Launch Call on the GHL calendar whose time has passed; calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too; a call the team cancelled counts as a no-show.</p></div>
       <div><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.</p></div>
-      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened (follow-up, deposit, won, lost or disqualified in Close). Anything else is a no-show. Show rate = shows ÷ booked calls, for Tier A and B; Tier C joins once Setter EOC data is connected.</p></div>
+      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
     </div>
   </section>
 </main>
@@ -233,7 +235,8 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const SHOW_TIERS = ["A", "B"];           // tiers whose shows are counted (Setter EOC for C not connected yet)
+  const SHOW_TIERS = ["A", "B", "C"];      // Closer EOC (A/B) and Setter EOC (C) both read from Airtable
+  const BASE_TIERS = ["A", "B"];           // the Oct 11-18 baseline stays A+B (Nabeel, 2026-10-19)
   const SMALL_N = 5;
   const state = { period: "this", tier: "all", data: null, sorts: {} };
   const root = document.documentElement;
@@ -315,7 +318,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       if (SHOW_TIERS.includes(b.tier)) {
         t.bookedS++;
         if (st === "showed") t.shows++;
-        if (b.outcome === "showed" || b.outcome === "no_show") t.eoc++;
+        if (b.eoc) t.eoc++;
       }
     }
     return t;
@@ -343,12 +346,12 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   function renderKpis(rows, now) {
     const t = tally(rows, now);
     $("kpis").replaceChildren(
-      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.bookedS} booked · ${t.shows} showed (A+B)`, "lead"),
+      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.bookedS} booked · ${t.shows} showed`, "lead"),
       kpi("Slot show rate", "soon", "needs calendar slot data"),
       kpi("Slot utilization", "soon", "needs calendar slot data"),
       kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`),
       kpi("Booked calls", String(t.booked), `${t.upcoming} still to come · ${fmtPct(pct(t.confirmed, t.booked))} confirmed`),
-      kpi("Shows", String(t.shows), `Tier A and B`));
+      kpi("Shows", String(t.shows), `${t.eoc} of ${t.bookedS} with an EOC filed`));
   }
 
   /* ---------- dimension tables ---------- */
@@ -382,7 +385,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   }
   const COLS = [
     ["Answer", null], ["Apps", "apps"], ["Booked calls", "booked"], ["Confirmed", "confirmed"], ["Shows", "shows"],
-    ["% of apps", "pApps"], ["% of booked", "pBooked"], ["Confirm rate", "cRate"], ["Show rate (A+B)", "sRate"],
+    ["% of apps", "pApps"], ["% of booked", "pBooked"], ["Confirm rate", "cRate"], ["Show rate", "sRate"],
   ];
   function renderDims(rows, now) {
     const box = $("dims");
@@ -449,7 +452,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const sr = el("td"), wrap = el("span", { class: "rate" + (small ? " small-n" : "") });
     if (r.sRate != null) { const bar = el("i"); const fill = el("span"); fill.style.width = Math.min(100, r.sRate) + "%"; bar.appendChild(fill); wrap.appendChild(bar); }
     wrap.appendChild(el("b", {}, r.sRate == null ? "–" : fmtPct(r.sRate)));
-    if (r.sRate != null) wrap.appendChild(el("em", { class: "frac", title: "shows / Tier A+B booked calls" }, `${r.t.shows}/${r.t.bookedS}`));
+    if (r.sRate != null) wrap.appendChild(el("em", { class: "frac", title: "shows / booked calls" }, `${r.t.shows}/${r.t.bookedS}`));
     sr.appendChild(wrap); tr.appendChild(sr);
     if (small) tr.querySelectorAll("td").forEach((td) => td.classList.add("small-n"));
     return tr;
@@ -462,7 +465,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const meters = groups.map(([label, t, form]) => {
       const rs = rows.filter((a) => a.booking && a.booking.tier === t && !a.booking.cancel && a.booking.outcome !== "not_in_close"
         && ["showed", "no_show"].includes(callStatus(a.booking, now)));
-      const f = t === "C" ? null : rs.filter((a) => ["showed", "no_show"].includes(a.booking.outcome)).length;
+      const f = rs.filter((a) => a.booking.eoc).length;
       if (f != null) { filed += f; past += rs.length; }
       const r = el("div", { class: "meter-row" });
       const l = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(t); l.append(i, document.createTextNode(`${label} · ${form}`));
@@ -474,16 +477,16 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
     $("meters").replaceChildren(...meters);
     $("eocBig").textContent = past ? fmtPct(pct(filed, past)) : "–";
-    $("eocSub").textContent = past ? `${filed} of ${past} Tier A and B calls held in this period have a Closer EOC (cancelled calls aren't counted here). Setter EOC (Tier C) will be added once its data is connected.` : "No Tier A or B call in this period has happened yet.";
+    $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed (Closer EOC for A and B, Setter EOC for C). Cancelled calls aren't counted here.` : "No call in this period has happened yet.";
   }
 
   /* ---------- baseline Oct 11-18, from the booking records ---------- */
   function renderBaseline() {
     const d = state.data, now = new Date(d.generated_at), end = new Date(d.forward_from);
-    const bk = d.bookings.filter((b) => SHOW_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
+    const bk = d.bookings.filter((b) => BASE_TIERS.includes(b.tier) && new Date(b.booked) < end && new Date(b.call) < end && new Date(b.call) <= now);
     const status = (b) => (b.outcome === "showed" ? "showed" : "no_show");   // baseline: every cancellation = no-show
     const sum = (rs) => ({ n: rs.length, s: rs.filter((b) => status(b) === "showed").length, c: rs.filter((b) => b.confirmed).length,
-      e: rs.filter((b) => b.outcome === "showed" || b.outcome === "no_show").length });
+      e: rs.filter((b) => b.eoc).length });
     const all = sum(bk);
     $("baseKpis").replaceChildren(
       kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead"),
