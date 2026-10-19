@@ -14,264 +14,327 @@
 <style>
 :root {
   color-scheme: light;
-  --page: #f3f1ea; --surface: #fbfaf6; --ink: #12120f; --ink-2: #4f4d47; --muted: #8a877f;
-  --grid: #e4e1d7; --axis: #c6c3b7; --ring: rgba(18,18,15,.10); --wash: #efece3;
+  --page: #f4f5f7; --surface: #ffffff; --ink: #14171c; --ink-2: #4a505a; --muted: #6a717c;
+  --grid: #e9ebef; --axis: #d3d7de; --ring: #e1e4e9; --wash: #f3f5f8; --head: #f1f3f6;
+  --accent: #1c5cab; --accent-soft: #e8f0fb;
   --tier-a: #1c5cab; --tier-b: #3987e5; --tier-c: #86b6ef;
   --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --warn-ink: #8a5a00; --crit: #d03b3b;
   --meter: #2a78d6; --meter-track: #dfe8f5;
+  --shadow: 0 1px 2px rgba(20,23,28,.04);
   --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --side-w: 220px;
 }
 /* dark only when the viewer picks it (light is the default, 2026-10-20) */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0e0e0d; --surface: #171715; --ink: #f0efea; --ink-2: #c3c1b6; --muted: #8a877f;
-  --grid: #2a2a27; --axis: #3a3a36; --ring: rgba(255,255,255,.09); --wash: #20201d;
+  --page: #0c0e11; --surface: #14171b; --ink: #eceef1; --ink-2: #b9bec7; --muted: #8b919b;
+  --grid: #23272d; --axis: #343a43; --ring: #262b32; --wash: #1b1f25; --head: #1a1e24;
+  --accent: #6aa5ee; --accent-soft: #1a2638;
   --tier-a: #b7d3f6; --tier-b: #5598e7; --tier-c: #1c5cab;
   --good-ink: #3fc33f; --warn-ink: #fab219; --meter: #3987e5; --meter-track: #1f2a3a;
+  --shadow: none;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
-@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+[hidden] { display: none !important; }
+button { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
+.skip { position: absolute; left: -9999px; top: 0; background: var(--ink); color: var(--page); padding: 8px 12px; z-index: 100; }
+.skip:focus { left: 8px; top: 8px; }
 
-.mast { padding-top: 40px; padding-bottom: 28px; }
-.mast-rule { border: 0; border-top: 1px solid var(--ink); margin: 0; }
-.mast-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
-.theme-btn { font: 500 12px var(--mono); letter-spacing: .06em; color: var(--ink-2); background: transparent; border: 1px solid var(--ring); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; flex: none; }
-.theme-btn:hover { color: var(--ink); border-color: var(--axis); }
-h1 { font-weight: 600; font-size: clamp(40px, 7.4vw, 84px); line-height: .96; letter-spacing: -.035em; margin: 28px 0 0; max-width: 14ch; }
-h1 em { font-style: normal; color: var(--tier-b); }
-.dek { max-width: 62ch; color: var(--ink-2); font-size: 17px; margin: 20px 0 0; }
-.meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 22px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.meta b { color: var(--ink-2); font-weight: 500; }
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; background: var(--surface); border-right: 1px solid var(--ring); display: flex; flex-direction: column; padding: 14px 10px; gap: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 10px; border-bottom: 1px solid var(--grid); }
+.brand-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--tier-a); display: grid; place-items: center; flex: none; }
+:root[data-theme="dark"] .brand-mark { background: #1c5cab; }
+.brand b { display: block; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+.brand span { display: block; font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-label { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 8px 4px; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px; }
+.nav a svg { flex: none; color: var(--muted); }
+.nav a:hover { background: var(--wash); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.nav a[aria-current="page"] svg { color: var(--accent); }
+.side-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 8px 0; border-top: 1px solid var(--grid); font: 11px var(--mono); color: var(--muted); }
 
-.filters { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--grid); }
-.filters .wrap { display: flex; flex-wrap: wrap; gap: 10px 22px; padding-top: 12px; padding-bottom: 12px; align-items: center; }
-.seg-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 8px; }
-.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 3px; }
-.seg button { font: 500 13px var(--sans); color: var(--ink-2); background: transparent; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
-.seg button:hover { color: var(--ink); background: var(--wash); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
-.seg button:focus-visible, .theme-btn:focus-visible, .tbl-btn:focus-visible, th button:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
-.fgroup { display: flex; align-items: center; }
-.scope { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--ring); display: flex; align-items: center; gap: 12px 20px; padding: 10px 24px; min-height: 56px; flex-wrap: wrap; }
+.top-title { min-width: 0; margin-right: auto; }
+h1 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin: 0; line-height: 1.25; }
+.sub { margin: 1px 0 0; color: var(--muted); font-size: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.fgroup { display: flex; align-items: center; gap: 6px; }
+.seg-label { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; background: var(--head); border: 1px solid var(--ring); border-radius: 7px; padding: 2px; }
+.seg button { font: 500 12px var(--sans); color: var(--ink-2); background: transparent; border: 0; border-radius: 5px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--axis); }
+.scope { font: 11.5px var(--mono); color: var(--muted); white-space: nowrap; }
+.updated { font: 11.5px var(--mono); color: var(--muted); white-space: nowrap; }
+.theme-btn { font: 500 12px var(--sans); color: var(--ink-2); background: var(--surface); border: 1px solid var(--axis); border-radius: 7px; padding: 5px 10px; cursor: pointer; white-space: nowrap; flex: none; }
+.theme-btn:hover { color: var(--ink); background: var(--wash); }
 
-section { padding: 48px 0 8px; scroll-margin-top: 72px; }
-.sec-head { display: grid; grid-template-columns: auto 1fr; gap: 0 18px; align-items: baseline; margin-bottom: 22px; }
-.sec-num { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .08em; }
-h2 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0; line-height: 1.15; }
-.sec-dek { grid-column: 2; color: var(--ink-2); margin: 6px 0 0; max-width: 70ch; }
-.tag { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--ring); border-radius: 999px; padding: 2px 9px; margin-left: 10px; vertical-align: 4px; }
-.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 16px; padding: 22px; }
-@media (min-width: 720px) { .card { padding: 26px 28px; } }
+.content { padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.view { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.view > * { min-width: 0; }
 
-/* KPI tiles */
-.kpis { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
-@media (min-width: 760px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 760px) and (max-width: 1079px) { .kpis.four { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1080px) { .kpis.six { grid-template-columns: repeat(6, 1fr); } .kpis.four { grid-template-columns: repeat(4, 1fr); } }
-.kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 16px 18px 18px; min-height: 124px; display: flex; flex-direction: column; justify-content: space-between; }
-.kpi-label { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
-.kpi-value { font-size: 36px; font-weight: 600; letter-spacing: -.035em; line-height: 1; margin-top: 14px; }
-.kpi-value.soon { color: var(--muted); font-size: 28px; }
-.kpi-foot { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 8px; }
-.kpi.lead { background: var(--ink); color: var(--page); border-color: var(--ink); }
-.kpi.lead .kpi-label, .kpi.lead .kpi-foot { color: color-mix(in srgb, var(--page) 70%, transparent); }
+/* ---------- cards, KPI tiles ---------- */
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; box-shadow: var(--shadow); min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; padding: 10px 14px; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
+.card-title { font-size: 13px; font-weight: 600; margin: 0; letter-spacing: -.005em; display: inline-flex; align-items: center; gap: 6px; }
+.card-sub { font: 11.5px var(--mono); color: var(--muted); }
+.card-body { padding: 14px; }
 
-/* baseline */
-.base-grid { display: grid; gap: 16px; grid-template-columns: 1fr; margin-top: 16px; }
-.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 14%, transparent); font-size: 13.5px; color: var(--ink); }
-.note svg { flex: none; margin-top: 2px; }
+.kpis { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 761px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 999px) { .kpis.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .kpis.four { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1180px) { .kpis.six { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; box-shadow: var(--shadow); padding: 10px 12px 11px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-width: 0; }
+.kpi-label { font-size: 11.5px; font-weight: 500; color: var(--ink-2); display: flex; align-items: flex-start; gap: 4px; line-height: 1.3; }
+.kpi-value { font-size: 24px; font-weight: 600; letter-spacing: -.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.kpi-value.soon { color: var(--muted); font-size: 18px; letter-spacing: -.01em; }
+.kpi-foot { font: 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; line-height: 1.35; }
+.kpi.lead { border-top: 2px solid var(--accent); }
+.kpi.lead .kpi-value { color: var(--accent); }
 
-/* tables */
-.dims { display: grid; gap: 16px; }
-.dim-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
-.dim-title { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
-.dim-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.tbl-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
-table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 820px; }
-th, td { text-align: right; padding: 10px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 200px; max-width: 360px; }
-thead th { font-family: var(--mono); font-weight: 500; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--axis); vertical-align: bottom; }
-th button { all: unset; cursor: pointer; }
-th button:hover { color: var(--ink); }
+/* ---------- info tooltips ---------- */
+.info { all: unset; box-sizing: border-box; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--axis); color: var(--muted); font: italic 600 9.5px/12px var(--sans); text-align: center; text-transform: none; letter-spacing: 0; cursor: help; margin-top: 0; position: relative; }
+.info::after { content: ""; position: absolute; inset: -6px; }   /* a 26px tap target around the 14px icon */
+.info:hover, .info:focus-visible, .info.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.info:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 1px; }
+#tip { position: fixed; z-index: 60; max-width: 280px; background: var(--ink); color: var(--page); font: 400 12px/1.45 var(--sans); padding: 8px 10px; border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+
+/* ---------- tables ---------- */
+.tbl-scroll { overflow: auto; max-height: min(72vh, 720px); max-width: 100%; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--surface); }
+th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 150px; max-width: 300px; position: sticky; left: 0; z-index: 1; }
+thead th { white-space: normal; position: sticky; top: 0; z-index: 2; background: var(--head); font-weight: 600; font-size: 11.5px; color: var(--ink-2); border-bottom: 1px solid var(--axis); vertical-align: middle; padding-top: 8px; padding-bottom: 8px; }
+thead th:first-child { z-index: 3; }
+.th-in { display: inline-flex; align-items: center; gap: 5px; }
+th button.sort { all: unset; box-sizing: border-box; cursor: pointer; border-radius: 3px; }
+th button.sort:hover { color: var(--ink); }
+th button.sort:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
 th.sorted { color: var(--ink); }
 th.rule, td.rule { border-left: 1px solid var(--grid); }
-td.num-strong { font-weight: 600; }
 td.dim { color: var(--muted); }
 tbody tr:hover td { background: var(--wash); }
-tr.total td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: 0; }
-tr.sep td { border-top: 1px solid var(--ink); padding-top: 14px; }
-/* morning report */
-.rep { display: grid; gap: 16px; grid-template-columns: 1fr; }
-/* the three cards stack full width: side by side their tables had to scroll */
-.rep > * { min-width: 0; }
-.rep-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
-.rep table td:first-child, .rep table th:first-child { min-width: 120px; }
-.badge { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--mono); letter-spacing: .02em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: var(--ink); }
-.badge.full { background: color-mix(in srgb, var(--crit) 22%, transparent); }
-.badge.nearly_full { background: color-mix(in srgb, var(--warn) 24%, transparent); }
-.badge.ok { background: color-mix(in srgb, var(--good) 18%, transparent); }
-.badge.closed { background: var(--wash); color: var(--ink-2); }
-.badge svg { flex: none; }
-.rep-who { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.rep-who span { font: 500 12px var(--mono); border: 1px solid var(--ring); border-radius: 999px; padding: 3px 10px; color: var(--ink-2); }
-.rep-who b { color: var(--ink); }
-.rep a { color: var(--ink); text-underline-offset: 3px; }
-.slot { font-family: var(--mono); font-size: 12.5px; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.total td { font-weight: 600; background: var(--head); border-top: 1px solid var(--axis); }
+tr.sep td { border-top: 1px solid var(--axis); }
+tr.total:hover td { background: var(--head); }
+.slot { font: 12px var(--mono); }
 .slot em { font-style: normal; color: var(--muted); }
-@media (max-width: 560px) { .rep table td:first-child, .rep table th:first-child { min-width: 88px; max-width: 110px; } .badge { font-size: 11px; padding: 3px 7px; } }
-.rate { display: inline-flex; align-items: center; gap: 10px; justify-content: flex-end; min-width: 168px; }
-.rate i { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
-.rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
-.rate b { font-weight: 600; min-width: 46px; text-align: right; }
-.rate .frac { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 40px; text-align: left; }
 .small-n { color: var(--muted); }
 .lbl { display: inline-flex; align-items: center; gap: 8px; }
-.lbl i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
-.empty { color: var(--ink-2); font-size: 14px; padding: 28px 4px; text-align: center; }
-.empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
-.tbl-btn { font: 500 12px var(--mono); color: var(--ink-2); background: transparent; border: 1px solid var(--ring); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.lbl i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex: none; }
+.cell-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.tbl-wide { min-width: 900px; }
+.tbl-mid { min-width: 680px; }
+.list th, .list td { text-align: left; }
+td a { color: var(--accent); text-underline-offset: 3px; }
+.rate { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 128px; }
+.rate i { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
+.rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
+.rate b { font-weight: 600; min-width: 42px; text-align: right; }
+.rate .frac { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 36px; text-align: left; }
+.empty { color: var(--ink-2); padding: 28px 14px; text-align: center; }
+.empty b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 4px; }
+.none-row { padding: 18px 14px; color: var(--muted); }
 
-/* EOC */
-.eoc { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .eoc { grid-template-columns: 1fr 1.2fr; } }
-.eoc-big { font-size: 64px; font-weight: 600; letter-spacing: -.045em; line-height: 1; margin: 12px 0; }
-.meters { display: grid; gap: 16px; }
-.meter-row { display: grid; grid-template-columns: 130px 1fr 100px; gap: 12px; align-items: center; font-size: 13px; }
-.meter { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--warn) 22%, var(--wash)); overflow: hidden; }
+/* badges and notes */
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px var(--mono); letter-spacing: .01em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; color: var(--ink); }
+.badge.full { background: color-mix(in srgb, var(--crit) 20%, transparent); }
+.badge.nearly_full { background: color-mix(in srgb, var(--warn) 24%, transparent); }
+.badge.ok { background: color-mix(in srgb, var(--good) 17%, transparent); }
+.badge.closed { background: var(--wash); color: var(--ink-2); }
+.badge svg { flex: none; }
+.note { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 13%, transparent); font-size: 12px; color: var(--ink); }
+.note svg { flex: none; margin-top: 2px; }
+.note.crit { background: color-mix(in srgb, var(--crit) 11%, transparent); }
+.note-wrap { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+#stale { }
+
+/* today */
+.strip { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.chip { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; box-shadow: var(--shadow); padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 150px; }
+.chip-k { font-size: 11.5px; font-weight: 500; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.chip-k i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex: none; }
+.chip-v { font-size: 13px; color: var(--ink); min-height: 21px; display: flex; align-items: center; }
+.chip-v.big { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.today-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.today-grid > * { min-width: 0; }
+.rep-who { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.rep-who span { font: 500 11.5px var(--mono); border: 1px solid var(--ring); border-radius: 999px; padding: 2px 9px; color: var(--ink-2); }
+.rep-who b { color: var(--ink); }
+
+/* predicts */
+.dim-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+.dim-pick { border-right: 1px solid var(--grid); padding: 8px; display: flex; flex-direction: column; gap: 1px; max-height: 640px; overflow-y: auto; }
+.dim-pick button { all: unset; box-sizing: border-box; cursor: pointer; padding: 6px 8px; border-radius: 5px; color: var(--ink-2); font-size: 12.5px; line-height: 1.3; }
+.dim-pick button:hover { background: var(--wash); color: var(--ink); }
+.dim-pick button[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.dim-pick button:focus-visible { outline: 2px solid var(--tier-b); outline-offset: -2px; }
+.dim-pick .grp { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 3px; }
+.dim-sel { display: none; width: 100%; font: 500 13px var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 7px 8px; }
+.dim-main { min-width: 0; }
+.dim-main .card-head { border-top: 0; }
+
+/* eoc */
+.eoc { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .eoc { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); } }
+.eoc-big { font-size: 40px; font-weight: 600; letter-spacing: -.04em; line-height: 1; margin: 4px 0 8px; font-variant-numeric: tabular-nums; color: var(--accent); }
+.meters { display: grid; gap: 14px; }
+.meter-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 110px; gap: 12px; align-items: center; font-size: 12.5px; }
+.meter { height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--warn) 22%, var(--wash)); overflow: hidden; }
 .meter span { display: block; height: 100%; border-radius: 4px; }
-.meter-row b { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.meter-row b { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; font-size: 12px; }
 
-.notes { display: grid; gap: 24px; grid-template-columns: 1fr; padding-bottom: 8px; }
-@media (min-width: 720px) { .notes { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1080px) { .notes { grid-template-columns: repeat(4, 1fr); } }
-.notes h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
-.notes p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
-footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; padding-bottom: 48px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
-/* grid children may shrink below their content, so a wide table scrolls INSIDE its card instead of widening the page */
-.base-grid > *, .dims > *, .eoc > *, .kpis > *, .notes > * { min-width: 0; }
 .loading { opacity: .45; transition: opacity .2s; }
-#stale { margin-top: 16px; }
-
-@media (max-width: 560px) {
-  .kpi-foot { overflow-wrap: anywhere; }
-  .mast-top { flex-wrap: wrap; }
-  .meter-row { grid-template-columns: 1fr auto; }
-  .meter-row .meter { grid-column: 1 / -1; order: 3; }
-  th:first-child, td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; min-width: 140px; }
-  .seg button { padding: 6px 9px; font-size: 12.5px; }
-  .seg-label, .scope { display: none; }
-  .filters .wrap { gap: 8px; }
-  .kpi-value { font-size: 30px; }
-  .eyebrow { font-size: 10.5px; }
-}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- mobile: the sidebar becomes a top tab bar; nothing widens the page ---------- */
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; height: auto; flex-direction: column; padding: 8px 0 0; gap: 0; border-right: 0; border-bottom: 1px solid var(--ring); }
+  .brand { border-bottom: 0; padding: 2px 14px 8px; }
+  .nav { flex-direction: row; overflow-x: auto; gap: 0; padding: 0 8px; border-top: 1px solid var(--grid); scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-label { display: none; }
+  .nav a { flex: none; padding: 11px 12px; border-radius: 0; border-bottom: 2px solid transparent; }
+  .nav a svg { display: none; }
+  .nav a[aria-current="page"] { background: transparent; border-bottom-color: var(--accent); }
+  .side-foot { padding: 4px 14px 8px; border-top: 0; font-size: 11px; }
+  .top { position: static; padding: 10px 14px; gap: 8px 12px; }
+  .top-title { flex: 1 1 60%; }
+  .filters { width: 100%; gap: 8px; order: 3; }
+  .seg-label { display: none; }
+  .filters { gap: 6px; }
+  .seg button { padding: 5px 6px; font-size: 11.5px; }
+  .scope, .updated { font-size: 11px; }
+  .scope { order: 4; }
+  .updated { order: 5; }
+  .content { padding: 12px 14px 32px; gap: 12px; }
+  .view { gap: 12px; }
+  .strip { gap: 8px; }
+  .chip { flex: 1 1 calc(50% - 8px); }
+  .kpi-value { font-size: 22px; }
+  .dim-layout { grid-template-columns: minmax(0, 1fr); }
+  .dim-pick { display: none; }
+  .dim-sel { display: block; margin: 10px 14px 0; width: calc(100% - 28px); }
+  .meter-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .meter-row .meter { grid-column: 1 / -1; order: 3; }
+  th:first-child, td:first-child { min-width: 128px; max-width: 150px; }
+  th, td { padding: 8px 10px; }
+  .tbl-scroll { max-height: min(70vh, 600px); }
+}
 </style>
 </head>
 <body>
-<header class="wrap mast">
-  <div class="mast-top">
-    <div class="eyebrow">AI Partner · Lead Nurture · Show Rate Ledger</div>
-    <button class="theme-btn" id="themeBtn" type="button">Theme</button>
-  </div>
-  <h1>Did they <em>show up</em>?</h1>
-  <p class="dek">Every application, booked call, confirmation and show for the AI Launch Call, broken down by how people answered the form, their tier, when they booked and which ad brought them in.</p>
-  <div class="meta" id="meta"></div>
-</header>
-<div class="wrap"><hr class="mast-rule"></div>
+<a class="skip" href="#content">Skip to content</a>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 32 32"><rect x="5" y="17" width="5" height="10" rx="1.5" fill="#fff"/><rect x="13.5" y="11" width="5" height="16" rx="1.5" fill="#fff"/><rect x="22" y="5" width="5" height="22" rx="1.5" fill="#fff"/></svg></div>
+      <div><b>Show Rate Ledger</b><span>AI Partner</span></div>
+    </div>
+    <nav class="nav" aria-label="Views">
+      <div class="nav-label">Reports</div>
+      <a href="#today" data-view="today"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Today</a>
+      <a href="#show-rates" data-view="show-rates"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5v-4M6.8 13.5v-8M11 13.5v-6M14 13.5H2"/></svg>Show rates</a>
+      <a href="#applications" data-view="applications"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 6h12M2 10h12M6 6v8"/></svg>Applications</a>
+      <a href="#eoc" data-view="eoc"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h6l3 3v9H4z"/><path d="m6 9 1.6 1.6L10.6 7.4"/></svg>EOC adherence</a>
+      <a href="#baseline" data-view="baseline"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h12M2 4h12M2 12h7"/></svg>Baseline</a>
+    </nav>
+    <div class="side-foot"><span id="sideFoot">Tracking from Oct 19</span><span id="srcTip"></span></div>
+  </aside>
 
-<nav class="filters" aria-label="Filters">
-  <div class="wrap">
-    <div class="fgroup"><span class="seg-label">Period</span>
-      <div class="seg" role="group" aria-label="Period" id="fPeriod">
-        <button type="button" data-v="this" aria-pressed="true">This week</button>
-        <button type="button" data-v="last" aria-pressed="false">Last week</button>
-        <button type="button" data-v="all" aria-pressed="false">Since Oct 19</button>
+  <div class="main">
+    <header class="top">
+      <div class="top-title"><h1 id="viewTitle">Today</h1><p class="sub" id="viewSub"></p></div>
+      <div class="filters" id="filters">
+        <div class="fgroup" id="gPeriod"><span class="seg-label">Period</span>
+          <div class="seg" role="group" aria-label="Period" id="fPeriod">
+            <button type="button" data-v="this" aria-pressed="true">This week</button>
+            <button type="button" data-v="last" aria-pressed="false">Last week</button>
+            <button type="button" data-v="all" aria-pressed="false">Since Oct 19</button>
+          </div>
+        </div>
+        <div class="fgroup" id="gTier"><span class="seg-label">Tier</span>
+          <div class="seg" role="group" aria-label="Tier" id="fTier">
+            <button type="button" data-v="all" aria-pressed="true">All</button>
+            <button type="button" data-v="A" aria-pressed="false">A</button>
+            <button type="button" data-v="B" aria-pressed="false">B</button>
+            <button type="button" data-v="C" aria-pressed="false">C</button>
+          </div>
+        </div>
+        <span class="scope" id="scope"></span>
       </div>
-    </div>
-    <div class="fgroup"><span class="seg-label">Tier</span>
-      <div class="seg" role="group" aria-label="Tier" id="fTier">
-        <button type="button" data-v="all" aria-pressed="true">All</button>
-        <button type="button" data-v="A" aria-pressed="false">A</button>
-        <button type="button" data-v="B" aria-pressed="false">B</button>
-        <button type="button" data-v="C" aria-pressed="false">C</button>
+      <span class="updated" id="updated"></span>
+      <button class="theme-btn" id="themeBtn" type="button">Theme</button>
+    </header>
+
+    <main class="content" id="content" tabindex="-1">
+      <div id="app" class="app-body">
+
+        <!-- TODAY -->
+        <section class="view" id="v-today" data-view="today" hidden aria-label="Today">
+          <div id="repNone" class="card empty" hidden><b>No morning report yet.</b>It appears after the next daily build.</div>
+          <div id="repBody" class="view">
+            <div class="strip" id="repStrip"></div>
+            <div class="today-grid">
+              <div class="card"><div class="card-head"><h2 class="card-title" id="repCapTitle">Closer capacity</h2><span class="card-sub" id="repCapSub"></span></div>
+                <div class="tbl-scroll"><table id="repCap" class="tbl-mid"></table></div><div class="note-wrap" id="repHand" style="padding-top:12px"></div></div>
+              <div class="card"><div class="card-head"><h2 class="card-title" id="repUncTitle">Today's calls not confirmed</h2><span class="card-sub" id="repUncSub"></span></div>
+                <div class="tbl-scroll"><table id="repUnc" class="list"></table></div></div>
+              <div class="card"><div class="card-head"><h2 class="card-title" id="repEocTitle">Yesterday's missing EOCs</h2><span class="card-sub" id="repEocSub"></span></div>
+                <div class="rep-who" id="repWho"></div><div class="tbl-scroll"><table id="repEoc" class="list"></table></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SHOW RATES -->
+        <section class="view" id="v-show-rates" data-view="show-rates" hidden aria-label="Show rates">
+          <div class="kpis four" id="kindKpis"></div>
+          <div class="card"><div class="card-head"><h2 class="card-title">Showed calls by booking type</h2><span class="card-sub" id="kindSub"></span></div>
+            <div class="tbl-scroll"><table id="kindTbl" class="tbl-wide"></table></div>
+            <div class="note-wrap" id="kindNote" hidden style="padding-top:12px"><div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg><span id="kindWhy"></span></div></div></div>
+        </section>
+
+        <!-- APPLICATIONS -->
+        <section class="view" id="v-applications" data-view="applications" hidden aria-label="Applications">
+          <div class="kpis six" id="kpis"></div>
+          <div class="card"><div class="card-head"><h2 class="card-title" id="dimsTitle">What predicts a show</h2><span class="card-sub" id="dimsSub"></span></div>
+            <div id="dims"></div></div>
+        </section>
+
+        <!-- EOC -->
+        <section class="view" id="v-eoc" data-view="eoc" hidden aria-label="EOC adherence">
+          <div class="eoc">
+            <div class="card"><div class="card-body"><div class="kpi-label" id="eocLabel">Past calls with an EOC filed </div><div class="eoc-big" id="eocBig">–</div><div class="kpi-foot" id="eocSub"></div></div></div>
+            <div class="card"><div class="card-head"><h2 class="card-title" id="eocMetersTitle">By tier and form</h2></div><div class="card-body"><div class="meters" id="meters"></div></div></div>
+          </div>
+        </section>
+
+        <!-- BASELINE -->
+        <section class="view" id="v-baseline" data-view="baseline" hidden aria-label="Baseline">
+          <div class="kpis four" id="baseKpis"></div>
+          <div class="card"><div class="card-head"><h2 class="card-title" id="baseTitle">Tier A and B by group</h2><span class="card-sub">Oct 11 to 18</span></div>
+            <div class="tbl-scroll"><table id="baseTbl" class="tbl-mid"></table></div>
+            <div class="note-wrap" style="padding-top:12px"><div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg><span id="baseWhy"></span></div></div></div>
+        </section>
+
       </div>
-    </div>
-    <span class="scope" id="scope"></span>
+    </main>
   </div>
-</nav>
-
-<main class="wrap" id="app">
-  <section aria-labelledby="h-rep">
-    <div class="sec-head"><span class="sec-num">01</span><h2 id="h-rep">Morning report <span class="tag" id="repAsOf">–</span></h2>
-      <p class="sec-dek">For the start of the sales day, rebuilt early every morning (7am ET in summer time, 6am in winter): do closers have room, which of today's calls nobody has confirmed, and which of yesterday's calls are missing their EOC. The filters above don't apply here. A confirmation or EOC that comes in later shows up in the next morning's build. Calls the team cancelled in GHL aren't listed as missing an EOC.</p></div>
-    <div class="rep">
-      <div class="card rep-cap"><div class="rep-head"><h3 class="dim-title">Closer capacity</h3><span class="dim-sub" id="repCapSub"></span></div>
-        <div class="tbl-scroll"><table id="repCap"></table></div><div id="repHand"></div></div>
-      <div class="card"><div class="rep-head"><h3 class="dim-title" id="repUncTitle">Today's calls not confirmed</h3><span class="dim-sub" id="repUncSub"></span></div>
-        <div class="tbl-scroll"><table id="repUnc"></table></div></div>
-      <div class="card"><div class="rep-head"><h3 class="dim-title" id="repEocTitle">Yesterday's missing EOCs</h3><span class="dim-sub" id="repEocSub"></span></div>
-        <div class="rep-who" id="repWho"></div><div class="tbl-scroll"><table id="repEoc"></table></div></div>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-kind">
-    <div class="sec-head"><span class="sec-num">02</span><h2 id="h-kind">Showed calls by booking type</h2>
-      <p class="sec-dek">Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types. Fresh bookings are direct (Tier A, B, and any other closer calendar) plus setter-led. Recoveries count as calls but not as fresh bookings. Follow-ups aren't counted, and Tier C triage calls have their own rate. Cancelled by the lead and rescheduled calls are left out of the show rate; a call the team cancelled is a no-show. The tier filter doesn't apply here.</p></div>
-    <div class="kpis four" id="kindKpis"></div>
-    <div class="card" style="margin-top:12px"><div class="tbl-scroll"><table id="kindTbl"></table></div>
-      <div class="note" id="kindNote" hidden><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span id="kindWhy"></span></div></div>
-  </section>
-
-  <section aria-labelledby="h-kpi">
-    <div class="sec-head"><span class="sec-num">03</span><h2 id="h-kpi">Applications in this period</h2>
-      <p class="sec-dek">Grouped by when the application came in, so a call booked for a later week counts once it has happened. Black and white: a call counts as showed only when its EOC says so; every other past call, including ones the team cancelled, is a no-show. Calls still to come are left out.</p></div>
-    <div class="kpis six" id="kpis"></div>
-  </section>
-
-  <section aria-labelledby="h-dims">
-    <div class="sec-head"><span class="sec-num">04</span><h2 id="h-dims">What predicts a show</h2>
-      <p class="sec-dek">One table per question and per factor. Click a column to sort. Small groups (under 5 booked calls) are greyed out: read them as hints, not results.</p></div>
-    <div class="dims" id="dims"></div>
-  </section>
-
-  <section aria-labelledby="h-eoc">
-    <div class="sec-head"><span class="sec-num">05</span><h2 id="h-eoc">EOC adherence</h2>
-      <p class="sec-dek">Shows only exist once the end-of-call form is filed in Airtable: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing or blank form counts as a no-show above, so missing forms drag the show rate down.</p></div>
-    <div class="eoc">
-      <div class="card"><div class="kpi-label">Past calls with an EOC filed</div><div class="eoc-big" id="eocBig">–</div><div class="dek" style="font-size:14px;margin:0" id="eocSub"></div></div>
-      <div class="card"><div class="kpi-label" style="margin-bottom:16px">By tier and form</div><div class="meters" id="meters"></div></div>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-base">
-    <div class="sec-head"><span class="sec-num">06</span><h2 id="h-base">Baseline: Oct 11 to 18 <span class="tag">fixed period</span></h2>
-      <p class="sec-dek">Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only, as Nabeel set it. Same black-and-white rules; filters above don't apply here.</p></div>
-    <div class="kpis four" id="baseKpis"></div>
-    <div class="base-grid"><div class="card"><div class="tbl-scroll"><table id="baseTbl"></table></div>
-      <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span id="baseWhy"></span></div>
-      <div class="note"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="var(--warn)"/><path d="M8 6v3.6M8 11.6v.1" stroke="#12120f" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically too.</span></div></div></div>
-  </section>
-
-  <section aria-labelledby="h-notes">
-    <div class="sec-head"><span class="sec-num">07</span><h2 id="h-notes">How it's counted</h2></div>
-    <div class="notes">
-      <div><h3>Applications and booked calls</h3><p>An application is a completed ROAS form. A booked call is an AI Launch Call on the GHL calendar whose time has passed; calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too; a call the team cancelled counts as a no-show.</p></div>
-      <div><h3>Confirmed</h3><p>The lead said yes to attending: Close "Confirmed Booking" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.</p></div>
-      <div><h3>Booking types</h3><p>Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying "Closer Booking"). Recovery: a closer call booked again after the lead no-showed or the team cancelled. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this.</p></div>
-      <div><h3>Shows</h3><p>A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a form left blank. Show rate = shows ÷ booked calls. The show rate covers closer calls (Tier A and B); Tier C triage calls have their own rate in section 02. A call the closer marks "client cancelled" is left out, like a cancellation through the ROAS link.</p></div>
-    </div>
-  </section>
-</main>
-<footer class="wrap" id="foot"></footer>
+</div>
+<div id="tip" role="tooltip" hidden></div>
 
 <script>
 (() => {
@@ -280,7 +343,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   const SHOW_TIERS = ["A", "B"];           // the show rate is closer calls; Tier C triage has its own (Nabeel, 2026-10-19)
   const BASE_TIERS = ["A", "B"];           // the Oct 11-18 baseline stays A+B (Nabeel, 2026-10-19)
   const SMALL_N = 5;
-  const state = { period: "this", tier: "all", data: null, sorts: {} };
+  const state = { period: "this", tier: "all", data: null, sorts: {}, dim: null, view: "today" };
   const root = document.documentElement;
   const css = (v) => getComputedStyle(root).getPropertyValue(v).trim();
   const tierColor = (t) => (["A", "B", "C"].includes(t) ? css(`--tier-${t.toLowerCase()}`) : css("--axis"));
@@ -305,6 +368,79 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     try { localStorage.setItem("srl-theme-v2", root.dataset.theme); } catch (e) {}
     themeLabel(); if (state.data) render();
   });
+
+  /* ---------- definitions, shown in small "i" tooltips instead of paragraphs ---------- */
+  const TIPS = {
+    blackWhite: "Black and white: a call counts as showed only when its EOC says so. Every other past call, including ones the team cancelled, is a no-show. Calls still to come are left out.",
+    showRate: "Shows divided by booked calls. Showed only when the EOC says so; every other past call, including team-cancelled ones, is a no-show. Upcoming calls are left out. Covers closer calls (Tier A and B).",
+    booked: "AI Launch Calls on the GHL calendar whose time has passed. Calls still to come are left out until they happen. A call the lead cancelled through the ROAS link is left out too.",
+    apps: "An application is a completed ROAS form. Grouped by when the application came in, so a call booked for a later week counts once it has happened.",
+    qualified: "Applications that passed qualification. The rest are disqualified.",
+    confirmed: "The lead said yes to attending: Close \"Confirmed Booking\" is Yes, LNS marked it CONFIRMED, or the lead texted a clear yes before the call.",
+    shows: "A show is an EOC form saying the call happened: the Closer EOC (Tier A and B) or the Setter triage EOC (Tier C), read from Airtable. Anything else is a no-show, including a blank form.",
+    eocFiled: "Shows only exist once the end-of-call form is filed in Airtable: Closer EOC for Tier A and B, Setter EOC for Tier C. A missing or blank form counts as a no-show, so missing forms drag the show rate down. Cancelled calls aren't counted.",
+    slot: "Needs calendar slot data. Not available yet.",
+    pApps: "Share of all applications in this table that fall in this row.",
+    pBooked: "Share of all booked calls in this table that fall in this row.",
+    cRate: "Confirmed divided by booked calls.",
+    smallN: "Groups under 5 booked calls are greyed out: read them as hints, not results.",
+    fresh: "Fresh bookings are direct (Tier A, B, and any other closer calendar) plus setter-led. Recoveries count as calls but not as fresh bookings. Follow-ups aren't counted.",
+    freshRate: "Shows divided by counted calls, for fresh bookings only: direct (Tier A, B, and any other closer calendar) plus setter-led. Recoveries count as calls but not as fresh bookings; follow-ups aren't counted. Black and white: showed only when the EOC says so.",
+    eocView: "Calls held in this period with an EOC filed: Closer EOC for Tier A and B, Setter EOC for Tier C. A form filed blank doesn't count. Cancelled calls aren't counted here. A missing or blank form counts as a no-show, so missing forms drag the show rate down.",
+    overallRate: "Shows divided by counted calls, fresh bookings plus recoveries.",
+    triage: "Tier C triage calls are setter calls with their own show rate, kept apart from the closer show rate.",
+    kind: "Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying \"Closer Booking\"). Recovery: a closer call booked again after a no-show or a team cancellation. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this; until setters fill it in, setter-led and recovery are worked out from each lead's booking history.",
+    due: "Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types (still to come aren't counted). The tier filter doesn't apply to this view.",
+    cancelLead: "Cancelled by the lead through the ROAS link, or marked \"client cancelled\" by the closer. Left out of the show rate.",
+    resched: "Rescheduled calls are left out of the show rate.",
+    counted: "Calls due minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
+    cancelRate: "Cancelled by the lead divided by calls due.",
+    reschedRate: "Rescheduled divided by calls due.",
+    capacity: "Open = slots still bookable (GHL). To come = calls still ahead.",
+    status: "Red when no slot is open, amber when few are left, green when there is room. Grey means no hours.",
+    missingEoc: "Calls from the previous day with no EOC filed, or one filed blank. Calls the team cancelled in GHL aren't listed. A confirmation or EOC that comes in later shows up in the next morning's build.",
+    unconfirmed: "Today's calls that nobody has confirmed. The report is rebuilt early every morning (7am ET in summer time, 6am in winter); filters don't apply.",
+    handover: "Double-booked slots: the later booking is the one to hand to a setter.",
+    baseline: "Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only. Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically.",
+    baseNoShow: "Includes cancellations and calls with no EOC filed.",
+    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Rebuilt early every morning ET. No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
+  };
+  /* one shared tooltip: positioned in JS so a scrolling table never clips it; the text is also the button's accessible name */
+  const tipEl = $("tip");
+  let tipBtn = null;
+  function showTip(b) {
+    if (tipBtn && tipBtn !== b) tipBtn.removeAttribute("aria-describedby");
+    tipBtn = b; tipEl.textContent = b.dataset.tip; tipEl.style.left = "0px"; tipEl.style.top = "0px"; tipEl.hidden = false;
+    const r = b.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), document.documentElement.clientWidth - w - 8);
+    let y = r.bottom + 8; if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 8);
+    tipEl.style.left = x + "px"; tipEl.style.top = y + "px";
+    b.setAttribute("aria-describedby", "tip"); b.classList.add("on");
+  }
+  function hideTip() { if (tipBtn) { tipBtn.removeAttribute("aria-describedby"); tipBtn.classList.remove("on"); } tipBtn = null; tipEl.hidden = true; }
+  function tip(key, label) {
+    const b = el("button", { type: "button", class: "info", "aria-label": `About ${label || "this"}` }, "i");
+    b.dataset.tip = TIPS[key]; return b;
+  }
+  document.addEventListener("mouseover", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) showTip(b); });
+  document.addEventListener("mouseout", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b && document.activeElement !== b) hideTip(); });
+  document.addEventListener("focusin", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) showTip(b); });
+  document.addEventListener("focusout", (e) => { if (e.target.closest && e.target.closest(".info")) hideTip(); });
+  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) { tipBtn === b && !tipEl.hidden && document.activeElement !== b ? hideTip() : showTip(b); } else hideTip(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
+  addEventListener("scroll", () => { if (tipBtn && document.activeElement === tipBtn) showTip(tipBtn); else hideTip(); }, true);
+  addEventListener("resize", hideTip);
+  $("srcTip").append(tip("sources", "Data sources"));
+  $("eocLabel").append(tip("eocView", "EOC adherence"));
+  // skip link: move focus to the content without touching the hash (the hash is the view)
+  document.querySelector("a.skip").addEventListener("click", (e) => { e.preventDefault(); const c = $("content"); c.setAttribute("tabindex", "-1"); c.focus(); });
+  // header cell with an optional info icon
+  function th(label, tipKey, cls = "") {
+    const h = el("th", { scope: "col", class: cls });
+    if (tipKey) { const s = el("span", { class: "th-in" }); s.append(document.createTextNode(label), tip(tipKey, label)); h.appendChild(s); }
+    else h.textContent = label;
+    return h;
+  }
 
   /* time helpers (lead's own timezone where it matters) */
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -380,21 +516,24 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   }
 
   /* ---------- KPI tiles ---------- */
-  function kpi(label, value, foot, cls = "") {
+  function kpi(label, value, foot, cls = "", tipKey) {
     const k = el("div", { class: "kpi " + cls });
-    const top = el("div"); top.append(el("div", { class: "kpi-label" }, label), el("div", { class: "kpi-value" + (value === "soon" ? " soon" : "") }, value === "soon" ? "Soon" : value));
+    const top = el("div"), lab = el("div", { class: "kpi-label" });
+    lab.appendChild(el("span", {}, label));
+    if (tipKey) lab.appendChild(tip(tipKey, label));
+    top.append(lab, el("div", { class: "kpi-value" + (value === "soon" ? " soon" : "") }, value === "soon" ? "Soon" : value));
     k.append(top, el("div", { class: "kpi-foot" }, foot));
     return k;
   }
   function renderKpis(rows, now) {
     const t = tally(rows, now);
     $("kpis").replaceChildren(
-      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.shows} of ${t.bookedS} booked calls (Tier A and B)`, "lead"),
-      kpi("Slot show rate", "soon", "needs calendar slot data"),
-      kpi("Slot utilization", "soon", "needs calendar slot data"),
-      kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`),
-      kpi("Booked calls", String(t.booked), `${t.upcoming} still to come · ${fmtPct(pct(t.confirmed, t.booked))} confirmed`),
-      kpi("Shows", String(t.shows), `${t.eoc} of ${t.eocBase} calls held have an EOC`));
+      kpi("Show rate", fmtPct(pct(t.shows, t.bookedS)), `${t.shows} of ${t.bookedS} booked calls (Tier A and B)`, "lead", "showRate"),
+      kpi("Slot show rate", "soon", "needs calendar slot data", "", "slot"),
+      kpi("Slot utilization", "soon", "needs calendar slot data", "", "slot"),
+      kpi("Qualified apps completed", String(t.qualified), `${t.dq} disqualified`, "", "qualified"),
+      kpi("Booked calls", String(t.booked), `${t.upcoming} still to come · ${fmtPct(pct(t.confirmed, t.booked))} confirmed`, "", "booked"),
+      kpi("Shows", String(t.shows), `${t.eoc} of ${t.eocBase} calls held have an EOC`, "", "shows"));
   }
 
   /* ---------- dimension tables ---------- */
@@ -427,57 +566,99 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     return dims;
   }
   const COLS = [
-    ["Answer", null], ["Apps", "apps"], ["Booked calls", "booked"], ["Confirmed", "confirmed"], ["Shows", "shows"],
-    ["% of apps", "pApps"], ["% of booked", "pBooked"], ["Confirm rate", "cRate"], ["Show rate", "sRate"],
+    ["Answer", null, null], ["Apps", "apps", "apps"], ["Booked calls", "booked", "booked"], ["Confirmed", "confirmed", "confirmed"], ["Shows", "shows", "shows"],
+    ["% of apps", "pApps", "pApps"], ["% of booked", "pBooked", "pBooked"], ["Confirm rate", "cRate", "cRate"], ["Show rate", "sRate", "showRate"],
   ];
   function renderDims(rows, now) {
     const box = $("dims");
+    $("dimsSub").textContent = "";
     if (!rows.length) {
-      const c = el("div", { class: "card empty" });
+      const c = el("div", { class: "empty" });
       c.append(el("b", {}, (state.data.apps || []).length ? "No applications in this period yet." : "Collecting from Monday, Oct 19."),
         document.createTextNode((state.data.apps || []).length ? "Try another period or tier." : "Applications appear here once the ROAS webhook is connected. Each table fills in as calls happen and EOC forms are filed."));
       box.replaceChildren(c); return;
     }
-    box.replaceChildren(...dimensions(rows).map(([title, key, isQuestion]) => {
-      const groups = new Map();
-      for (const a of rows) { const k = key(a); if (k == null || k === "") continue; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
-      // the total and every share in this table cover only the rows it lists (timing tables have booked calls only)
-      const total = tally([...groups.values()].flat(), now);
-      const card = el("div", { class: "card" });
-      const head = el("div", { class: "dim-head" });
-      head.append(el("h3", { class: "dim-title" }, title), el("span", { class: "dim-sub" }, isQuestion ? "Form question" : ""));
-      card.appendChild(head);
-      if (!groups.size) { card.appendChild(el("div", { class: "empty" }, "No data for this yet.")); return card; }
-      let list = [...groups.entries()].map(([k, rs]) => {
-        const t = tally(rs, now);
-        return { k, t, apps: t.apps, booked: t.booked, confirmed: t.confirmed, shows: t.shows,
-          pApps: pct(t.apps, total.apps), pBooked: pct(t.booked, total.booked), cRate: pct(t.confirmed, t.booked), sRate: pct(t.shows, t.bookedS) };
-      });
-      const s = state.sorts[title];
-      if (s) list.sort((x, y) => ((y[s.key] ?? -1) - (x[s.key] ?? -1)) * s.dir);
-      else if (ORDER[title]) list.sort((x, y) => ORDER[title].indexOf(x.k) - ORDER[title].indexOf(y.k));
-      else if (list.every((r) => LENGTHS.includes(r.k))) list.sort((x, y) => LENGTHS.indexOf(x.k) - LENGTHS.indexOf(y.k));
-      else list.sort((x, y) => y.apps - x.apps || String(x.k).localeCompare(String(y.k)));
-      const scroll = el("div", { class: "tbl-scroll" }), table = el("table");
-      const thead = el("thead"), hr = el("tr");
-      COLS.forEach(([label, k], i) => {
-        const th = el("th", { scope: "col", class: (i === 5 ? "rule " : "") + (s && s.key === k ? "sorted" : "") });
-        if (k) {
-          const b = el("button", { type: "button", "aria-label": `Sort by ${label}` }, label + (s && s.key === k ? (s.dir === 1 ? " ↓" : " ↑") : ""));
-          b.addEventListener("click", () => { const cur = state.sorts[title]; state.sorts[title] = { key: k, dir: cur && cur.key === k ? -cur.dir : 1 }; renderDims(slice().rows, now); });
-          th.appendChild(b);
-        } else th.textContent = title === "Tier" ? "Tier" : "Answer";
-        hr.appendChild(th);
-      });
-      thead.appendChild(hr);
-      const tb = el("tbody");
-      for (const r of list) tb.appendChild(row(r, title));
-      const tt = { k: "Total", apps: total.apps, booked: total.booked, confirmed: total.confirmed, shows: total.shows, pApps: 100, pBooked: 100,
-        cRate: pct(total.confirmed, total.booked), sRate: pct(total.shows, total.bookedS), t: total };
-      const trT = row(tt, title); trT.classList.add("total"); tb.appendChild(trT);
-      table.append(thead, tb); scroll.appendChild(table); card.appendChild(scroll);
-      return card;
-    }));
+    const dl = dimensions(rows);
+    if (!dl.some((d) => d[0] === state.dim)) state.dim = dl[0][0];
+    const pick = (title, viaSelect) => {
+      state.dim = title; renderDims(rows, now);
+      const f = viaSelect ? box.querySelector(".dim-sel") : box.querySelector('.dim-pick button[aria-current="true"]');
+      if (f) f.focus();
+    };
+    // desktop: a list of questions on the left; phone: the same choice as a select
+    const side = el("div", { class: "dim-pick", role: "group", "aria-label": "Question or factor" });
+    let lastGroup = null;
+    const APP_DIMS = ["Tier", "Application score", "Qualified"];
+    for (const [title, , isQuestion] of dl) {
+      const g = isQuestion ? "Form questions" : APP_DIMS.includes(title) ? "Application" : "Timing and ad";
+      if (g !== lastGroup) { side.appendChild(el("div", { class: "grp" }, g)); lastGroup = g; }
+      const b = el("button", { type: "button" }, title);
+      if (title === state.dim) b.setAttribute("aria-current", "true");
+      b.addEventListener("click", () => pick(title));
+      side.appendChild(b);
+    }
+    const sel = el("select", { class: "dim-sel", "aria-label": "Question or factor" });
+    let og = null, ogName = null;
+    for (const [t, , q] of dl) {
+      const g = q ? "Form questions" : APP_DIMS.includes(t) ? "Application" : "Timing and ad";
+      if (g !== ogName) { og = el("optgroup", { label: g }); sel.appendChild(og); ogName = g; }
+      const o = el("option", { value: t }, t); if (t === state.dim) o.selected = true; og.appendChild(o);
+    }
+    sel.addEventListener("change", () => pick(sel.value, true));
+    const [title, key, isQuestion] = dl.find((d) => d[0] === state.dim);
+    const main = el("div", { class: "dim-main" });
+    main.appendChild(dimTable(title, key, isQuestion, rows, now));
+    const lay = el("div", { class: "dim-layout" });
+    const right = el("div", { class: "dim-main" });
+    right.append(sel, main);
+    lay.append(side, right);
+    box.replaceChildren(lay);
+    $("dimsSub").textContent = `${dl.length} cuts · click a column to sort`;
+  }
+  function dimTable(title, key, isQuestion, rows, now) {
+    const groups = new Map();
+    for (const a of rows) { const k = key(a); if (k == null || k === "") continue; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
+    // the total and every share in this table cover only the rows it lists (timing tables have booked calls only)
+    const total = tally([...groups.values()].flat(), now);
+    const card = el("div");
+    const head = el("div", { class: "card-head", style: "border-top:0" });
+    const h = el("h3", { class: "card-title" }, title);
+    h.appendChild(tip("smallN", "Small groups"));
+    head.append(h, el("span", { class: "card-sub" }, isQuestion ? "Form question" : ""));
+    card.appendChild(head);
+    if (!groups.size) { card.appendChild(el("div", { class: "empty" }, "No data for this yet.")); return card; }
+    let list = [...groups.entries()].map(([k, rs]) => {
+      const t = tally(rs, now);
+      return { k, t, apps: t.apps, booked: t.booked, confirmed: t.confirmed, shows: t.shows,
+        pApps: pct(t.apps, total.apps), pBooked: pct(t.booked, total.booked), cRate: pct(t.confirmed, t.booked), sRate: pct(t.shows, t.bookedS) };
+    });
+    const s = state.sorts[title];
+    if (s) list.sort((x, y) => ((y[s.key] ?? -1) - (x[s.key] ?? -1)) * s.dir);
+    else if (ORDER[title]) list.sort((x, y) => ORDER[title].indexOf(x.k) - ORDER[title].indexOf(y.k));
+    else if (list.every((r) => LENGTHS.includes(r.k))) list.sort((x, y) => LENGTHS.indexOf(x.k) - LENGTHS.indexOf(y.k));
+    else list.sort((x, y) => y.apps - x.apps || String(x.k).localeCompare(String(y.k)));
+    const scroll = el("div", { class: "tbl-scroll" }), table = el("table", { class: "tbl-mid" });
+    const thead = el("thead"), hr = el("tr");
+    COLS.forEach(([label, k, tk], i) => {
+      const th0 = el("th", { scope: "col", class: (i === 5 ? "rule " : "") + (s && s.key === k ? "sorted" : "") });
+      const inner = el("span", { class: "th-in" });
+      if (k) {
+        const b = el("button", { type: "button", class: "sort", "aria-label": `Sort by ${label}` }, label + (s && s.key === k ? (s.dir === 1 ? " ↓" : " ↑") : ""));
+        b.addEventListener("click", () => { const cur = state.sorts[title]; state.sorts[title] = { key: k, dir: cur && cur.key === k ? -cur.dir : 1 }; renderDims(slice().rows, now); });
+        inner.appendChild(b);
+      } else inner.appendChild(document.createTextNode(title === "Tier" ? "Tier" : "Answer"));
+      if (tk) inner.appendChild(tip(tk, label));
+      th0.appendChild(inner);
+      hr.appendChild(th0);
+    });
+    thead.appendChild(hr);
+    const tb = el("tbody");
+    for (const r of list) tb.appendChild(row(r, title));
+    const tt = { k: "Total", apps: total.apps, booked: total.booked, confirmed: total.confirmed, shows: total.shows, pApps: 100, pBooked: 100,
+      cRate: pct(total.confirmed, total.booked), sRate: pct(total.shows, total.bookedS), t: total };
+    const trT = row(tt, title); trT.classList.add("total"); tb.appendChild(trT);
+    table.append(thead, tb); scroll.appendChild(table); card.appendChild(scroll);
+    return card;
   }
   function row(r, title) {
     const tr = el("tr");
@@ -486,7 +667,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     if (title === "Tier" && r.k !== "Total") { const s = el("span", { class: "lbl" }); const i = el("i"); i.style.background = tierColor(r.k); s.append(i, document.createTextNode(["A", "B", "C"].includes(r.k) ? `Tier ${r.k}` : r.k)); first.appendChild(s); }
     else first.textContent = r.k;
     tr.appendChild(first);
-    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–" (its rate is in section 02)
+    // shows are only counted for Tier A/B (SHOW_TIERS): a Tier C-only row shows "–" (its rate is in the Show rates view)
     const showsTxt = r.t.bookedS === 0 && r.t.booked > 0 ? "–" : String(r.shows);
     for (const v of [r.apps, r.booked, r.confirmed, showsTxt]) tr.appendChild(el("td", {}, String(v)));
     const p1 = el("td", { class: "rule dim" }, fmtPct(r.pApps)); tr.appendChild(p1);
@@ -520,7 +701,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
     $("meters").replaceChildren(...meters);
     $("eocBig").textContent = past ? fmtPct(pct(filed, past)) : "–";
-    $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed (Closer EOC for A and B, Setter EOC for C). Cancelled calls aren't counted here.` : "No call in this period has happened yet.";
+    $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed` : "No call in this period has happened yet.";
   }
 
   /* ---------- morning report (built at 7am ET; filters don't apply) ---------- */
@@ -547,11 +728,13 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     else td.appendChild(el("span", { class: "small-n" }, "not in Close"));
     return td;
   }
+  // head: array of labels, or [label, tipKey] pairs
   function listTable(t, head, rows, cells, empty) {
     t.replaceChildren();
-    if (!rows.length) { t.appendChild(el("tbody")).appendChild(el("tr")).appendChild(el("td", { class: "small-n" }, empty)); return; }
+    if (!rows.length) { const d = el("div", { class: "none-row" }, empty); t.replaceChildren(); t.hidden = true; t.parentNode.querySelectorAll(".none-row").forEach((n) => n.remove()); t.parentNode.appendChild(d); return; }
+    t.hidden = false; t.parentNode.querySelectorAll(".none-row").forEach((n) => n.remove());
     const thead = el("thead"), hr = el("tr");
-    head.forEach((h) => hr.appendChild(el("th", { scope: "col" }, h)));
+    head.forEach((h, i) => hr.appendChild(Array.isArray(h) ? th(h[0], h[1]) : th(h)));
     thead.appendChild(hr);
     const tb = el("tbody");
     for (const r of rows) { const tr = el("tr"); cells(r).forEach((c) => tr.appendChild(typeof c === "string" ? el("td", {}, c) : c)); tb.appendChild(tr); }
@@ -560,31 +743,53 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
   const tierCell = (tier) => { const td = el("td"), l = el("span", { class: "lbl" }), i = el("i"); i.style.background = tierColor(tier); l.append(i, document.createTextNode(["A", "B", "C"].includes(tier) ? `Tier ${tier}` : tier)); td.appendChild(l); return td; };
   const days0 = (r) => ((r.capacity || [])[0] || { days: [] }).days.map((d) => d.date);
   function renderReport() {
-    const sec = document.querySelector('[aria-labelledby="h-rep"]');
+    const sec = $("repBody");
     try { drawReport(state.data.report, sec); }
-    catch (e) { sec.hidden = true; console.error("morning report", e); }
+    catch (e) {
+      sec.hidden = true; $("repNone").hidden = false; console.error("morning report", e);
+      $("repNone").replaceChildren(el("b", {}, "The morning report couldn't be read."), document.createTextNode("The rest of the dashboard is fine; check the latest Vercel build log."));
+    }
   }
   function drawReport(r, sec) {
-    if (!r) { sec.hidden = true; return; }
-    sec.hidden = false;
+    if (!r) { sec.hidden = true; $("repNone").hidden = false; return; }
+    sec.hidden = false; $("repNone").hidden = true;
     r.capacity = r.capacity || []; r.unconfirmed = r.unconfirmed || []; r.missing_eoc = r.missing_eoc || [];
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
     const stale = r.today !== today;
     const dayTwo = stale && days0(r)[1] ? `on ${etDay(days0(r)[1])}` : "tomorrow";
-    $("repAsOf").textContent = `as of ${niceDate(r.as_of, true)}` + (stale ? " · not today's" : "");
     $("repUncTitle").textContent = stale ? `Calls on ${etDay(r.today)} not confirmed` : "Today's calls not confirmed";
     $("repEocTitle").textContent = stale ? `Missing EOCs from ${etDay(r.yesterday)}` : "Yesterday's missing EOCs";
+    $("repUncTitle").appendChild(tip("unconfirmed", "Unconfirmed calls"));
+    $("repEocTitle").appendChild(tip("missingEoc", "Missing EOCs"));
+    // status strip: one chip per calendar, then the two counts and when the report was built
+    const strip = $("repStrip"); strip.replaceChildren();
+    for (const c of r.capacity) {
+      const chip = el("div", { class: "chip" }), k = el("div", { class: "chip-k" }), sw = el("i");
+      sw.style.background = tierColor(c.tier);
+      k.append(sw, document.createTextNode(["A", "B", "C"].includes(c.tier) ? `Tier ${c.tier}` : String(c.tier)));
+      const v = el("div", { class: "chip-v" });
+      if (c.error) v.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
+      else if (c.status) v.appendChild(badge(c.status));
+      else v.appendChild(el("span", { class: "small-n" }, "setter calendar"));
+      chip.append(k, v); strip.appendChild(chip);
+    }
+    const cnt = (label, n, tk) => { const chip = el("div", { class: "chip" }), k = el("div", { class: "chip-k" }); k.append(document.createTextNode(label), tip(tk, label)); chip.append(k, el("div", { class: "chip-v big" }, String(n))); return chip; };
+    strip.append(cnt(stale ? "Unconfirmed" : "Unconfirmed today", r.unconfirmed.length, "unconfirmed"), cnt(stale ? "Missing EOCs" : "Missing EOCs yesterday", r.missing_eoc.length, "missingEoc"));
+    const asof = el("div", { class: "chip" }), ak = el("div", { class: "chip-k" }, "Report built");
+    asof.append(ak, el("div", { class: "chip-v" }, `${niceDate(r.as_of, true)}` + (stale ? " · not today's" : ""))); strip.appendChild(asof);
     // capacity: one row per calendar, three days
     const cap = $("repCap"); cap.replaceChildren();
     const days = (r.capacity[0] || { days: [] }).days.map((d) => d.date);
     const thead = el("thead"), hr = el("tr");
     // status right after the calendar: on a phone the rest scrolls, the verdict stays in view
-    ["Calendar", "Status", ...days.map((d, i) => (stale || i > 1 ? etDay(d) : i === 0 ? "Rest of today" : "Tomorrow"))].forEach((h) => hr.appendChild(el("th", { scope: "col" }, h)));
+    const stH = th("Status", "status"); stH.style.textAlign = "left";
+    hr.append(th("Calendar"), stH);
+    days.forEach((d, i) => hr.appendChild(th(stale || i > 1 ? etDay(d) : i === 0 ? "Rest of today" : "Tomorrow", i === 0 ? "capacity" : null)));
     thead.appendChild(hr);
     const tb = el("tbody");
     for (const c of r.capacity) {
       const tr = el("tr"), first = tierCell(c.tier);
-      first.appendChild(el("div", { class: "small-n", style: "font-size:12px" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + (c.per_slot > 1 ? ` · ${c.per_slot} per slot` : "")));
+      first.appendChild(el("div", { class: "cell-sub" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + (c.per_slot > 1 ? ` · ${c.per_slot} per slot` : "")));
       tr.appendChild(first);
       const st = el("td", { style: "text-align:left" });
       if (c.error) st.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
@@ -600,11 +805,11 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       tb.appendChild(tr);
     }
     cap.append(thead, tb);
-    $("repCapSub").textContent = `Open = slots still bookable (GHL), to come = calls still ahead. Red at ${r.thresholds.full} open ${dayTwo}, amber at ${r.thresholds.nearly_full} or fewer.`;
+    $("repCapSub").textContent = `Red at ${r.thresholds.full} open ${dayTwo}, amber at ${r.thresholds.nearly_full} or fewer`;
     const hand = r.capacity.filter((c) => c.status === "full");
-    const box = $("repHand"); box.replaceChildren();
+    const box = $("repHand"); box.replaceChildren(); box.hidden = !hand.length;
     for (const c of hand) {
-      const n = el("div", { class: "note" }); n.style.background = "color-mix(in srgb, var(--crit) 12%, transparent)";
+      const n = el("div", { class: "note crit" });
       const span = el("span");
       const list = c.hand_over || [];
       span.textContent = `Tier ${c.tier} has no open slot ${dayTwo}. ` + (list.length
@@ -612,18 +817,19 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
         : "No double-booked slot tomorrow, so nothing obvious to hand over; new bookings will need a setter.");
       n.appendChild(span); box.appendChild(n);
       if (list.length) {
-        const t = el("table"), w = el("div", { class: "tbl-scroll" }); w.appendChild(t); box.appendChild(w);
+        const t = el("table", { class: "list" }), w = el("div", { class: "tbl-scroll", style: "border:1px solid var(--grid);border-radius:6px" }); w.appendChild(t); box.appendChild(w);
         listTable(t, ["Time (ET)", "With", "Confirmed", "Lead"], list, (x) => [etTime(x.call), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
       }
     }
     // today's unconfirmed
     $("repUncSub").textContent = r.unconfirmed.length ? `${r.unconfirmed.length} call${r.unconfirmed.length === 1 ? "" : "s"}` : "";
-    listTable($("repUnc"), ["Time (ET)", "Tier", "Type", "With", "Lead"], r.unconfirmed,
+    listTable($("repUnc"), ["Time (ET)", "Tier", ["Type", "kind"], "With", "Lead"], r.unconfirmed,
       (x) => [etTime(x.call), tierCell(x.tier), KIND_LABEL[x.kind] || "–", x.who, closeLink(x.close)], stale ? `Every call on ${etDay(r.today)} was confirmed.` : "Every call today is confirmed.");
     // yesterday's missing EOCs, with a count per person
     $("repEocSub").textContent = `${etDay(r.yesterday)} · Closer EOC for A and B, Setter EOC for C`;
     const per = {};
     for (const x of r.missing_eoc) per[x.who] = (per[x.who] || 0) + 1;
+    $("repWho").hidden = !Object.keys(per).length;
     $("repWho").replaceChildren(...Object.entries(per).sort((a, b) => b[1] - a[1]).map(([who, n]) => { const s = el("span"); s.append(el("b", {}, String(n)), document.createTextNode(` ${who}`)); return s; }));
     listTable($("repEoc"), ["Time (ET)", "Tier", "Form", "Who files it", "State", "Lead"], r.missing_eoc,
       (x) => [etTime(x.call), tierCell(x.tier), x.form, x.who, x.state === "blank" ? "Filed blank" : x.state === "not in Close" ? "Can't check: not in Close" : "Not filed", closeLink(x.close)], stale ? `Every call on ${etDay(r.yesterday)} has its EOC.` : "Every call yesterday has its EOC.");
@@ -678,14 +884,14 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const T = Object.fromEntries(KIND_ROWS.map(([label, f]) => [label, kindTally(bk.filter(f), now)]));
     const fresh = T["Fresh bookings"], all = T["Overall (fresh + recovery)"], tri = T["Tier C triage calls"];
     $("kindKpis").replaceChildren(
-      kpi("Fresh booking show rate", fmtPct(pct(fresh.shows, fresh.counted)), `${fresh.shows} of ${fresh.counted} calls · direct + setter-led`, "lead"),
-      kpi("Overall show rate", fmtPct(pct(all.shows, all.counted)), `${all.shows} of ${all.counted} calls · incl. recoveries`),
-      kpi("Tier C triage show rate", fmtPct(pct(tri.shows, tri.counted)), `${tri.shows} of ${tri.counted} setter calls`),
-      kpi("Confirmation rate", fmtPct(pct(fresh.confirmed, fresh.counted)), `${fresh.confirmed} of ${fresh.counted} fresh calls confirmed`));
+      kpi("Fresh booking show rate", fmtPct(pct(fresh.shows, fresh.counted)), `${fresh.shows} of ${fresh.counted} calls · direct + setter-led`, "lead", "freshRate"),
+      kpi("Overall show rate", fmtPct(pct(all.shows, all.counted)), `${all.shows} of ${all.counted} calls · incl. recoveries`, "", "overallRate"),
+      kpi("Tier C triage show rate", fmtPct(pct(tri.shows, tri.counted)), `${tri.shows} of ${tri.counted} setter calls`, "", "triage"),
+      kpi("Confirmation rate", fmtPct(pct(fresh.confirmed, fresh.counted)), `${fresh.confirmed} of ${fresh.counted} fresh calls confirmed`, "", "confirmed"));
     const t = $("kindTbl"); t.replaceChildren();
     const thead = el("thead"), hr = el("tr");
-    ["Booking type", "Calls due", "Cancelled by lead", "Rescheduled", "Counted", "Confirmed", "Shows", "Show rate", "Confirm rate", "Cancel rate", "Reschedule rate"]
-      .forEach((h, i) => hr.appendChild(el("th", { scope: "col", class: i === 7 ? "rule" : "" }, h)));
+    [["Booking type", "kind"], ["Calls due", "due"], ["Cancelled by lead", "cancelLead"], ["Rescheduled", "resched"], ["Counted", "counted"], ["Confirmed", "confirmed"], ["Shows", "shows"], ["Show rate", "showRate"], ["Confirm rate", "cRate"], ["Cancel rate", "cancelRate"], ["Reschedule rate", "reschedRate"]]
+      .forEach(([h, tk], i) => hr.appendChild(th(h, tk, i === 7 ? "rule" : "")));
     thead.appendChild(hr);
     const tb = el("tbody");
     for (const [label, , tier, cls, optional] of KIND_ROWS) {
@@ -707,8 +913,8 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const up = all.upcoming + tri.upcoming;
     $("kindNote").hidden = false;
     if (!d.bookings.some((b) => b.kind)) { $("kindWhy").textContent = "Booking types arrive with the next data build."; return; }
-    $("kindWhy").textContent = (bk.length ? `${up} call${up === 1 ? "" : "s"} in this period ${up === 1 ? "is" : "are"} still to come and not counted yet. ` : "No calls in this period yet. ")
-      + "Setter-led and recovery are worked out from each lead's booking history until setters fill in Booking Type on the triage form; once they do, the form decides.";
+    $("kindWhy").textContent = bk.length ? `${up} call${up === 1 ? "" : "s"} in this period ${up === 1 ? "is" : "are"} still to come and not counted yet.` : "No calls in this period yet.";
+    $("kindSub").textContent = "";
   }
 
   /* ---------- baseline Oct 11-18, from the booking records ---------- */
@@ -721,10 +927,10 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       e: rs.filter((b) => b.eoc && !b.eoc_blank && b.outcome !== "cancelled").length });
     const all = sum(bk);
     $("baseKpis").replaceChildren(
-      kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead"),
-      kpi("Booked calls", String(all.n), "calls already held or due"),
-      kpi("Confirm rate", fmtPct(pct(all.c, all.n)), `${all.c} confirmed`),
-      kpi("No-shows", String(all.n - all.s), "incl. cancellations, missing EOCs"));
+      kpi("Show rate (A+B)", fmtPct(pct(all.s, all.n)), `${all.s} of ${all.n} booked calls`, "lead", "baseline"),
+      kpi("Booked calls", String(all.n), "calls already held or due", "", "booked"),
+      kpi("Confirm rate", fmtPct(pct(all.c, all.n)), `${all.c} confirmed`, "", "confirmed"),
+      kpi("No-shows", String(all.n - all.s), "incl. cancellations, missing EOCs", "", "blackWhite"));
     const groups = [
       ["Tier A", bk.filter((b) => b.tier === "A"), "A"], ["Tier B", bk.filter((b) => b.tier === "B"), "B"],
       ["Confirmed", bk.filter((b) => b.confirmed)], ["Not confirmed", bk.filter((b) => !b.confirmed)],
@@ -732,7 +938,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     ];
     const t = $("baseTbl"); t.replaceChildren();
     const thead = el("thead"), hr = el("tr");
-    for (const h of ["", "Booked calls", "EOC filed", "Showed", "No-show", "Confirmed", "Confirm rate", "Show rate"]) hr.appendChild(el("th", { scope: "col" }, h));
+    for (const [h, tk] of [["Group"], ["Booked calls", "booked"], ["EOC filed", "eocFiled"], ["Showed", "shows"], ["No-show", "baseNoShow"], ["Confirmed", "confirmed"], ["Confirm rate", "cRate"], ["Show rate", "showRate"]]) hr.appendChild(th(h, tk));
     thead.appendChild(hr);
     const tb = el("tbody");
     for (const [label, rs, tier] of groups) {
@@ -748,17 +954,46 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     t.append(thead, tb);
     const cancelled = bk.filter((b) => b.outcome === "cancelled").length;
     const held = all.n - cancelled, missing = held - all.e;
-    $("baseWhy").textContent = `Read this as a paperwork number first: of ${held} calls that were held or due, only ${all.e} have an EOC filed. `
-      + `The ${missing} without one and the ${cancelled} other cancellations all count as no-shows under the black-and-white rule. `
-      + "The true show rate is somewhere above this, and the forward tracking will tighten it as EOCs get filed.";
+    $("baseWhy").textContent = `Of ${held} calls held or due, only ${all.e} have an EOC filed. `
+      + `The ${missing} without one and the ${cancelled} other cancellations all count as no-shows, so the true show rate is higher.`;
+    const bt = $("baseTitle"); if (!bt.querySelector(".info")) bt.appendChild(tip("baseline", "Baseline"));
   }
 
   function staleBanner() {
     const age = (Date.now() - new Date(state.data.generated_at)) / 3600e3;
     let b = document.getElementById("stale");
     if (age <= 26) { if (b) b.remove(); return; }
-    if (!b) { b = el("div", { id: "stale", class: "note wrap", role: "status" }); document.querySelector(".filters").after(b); }
+    if (!b) { b = el("div", { id: "stale", class: "note", role: "status" }); $("content").prepend(b); }
     b.textContent = `These numbers are from ${niceDate(state.data.generated_at, true)}: the daily refresh hasn't run since. Check Vercel deployments.`;
+  }
+
+  /* ---------- views: one page each, switched by the URL hash ---------- */
+  const VIEWS = {
+    today: { title: "Today", sub: "Closer capacity, unconfirmed calls and missing EOCs.", period: false, tier: false },
+    "show-rates": { title: "Show rates", sub: "Calls by booking type, grouped by call time.", period: true, tier: false },
+    applications: { title: "Applications", sub: "Grouped by application date. Small groups are hints.", period: true, tier: true },
+    eoc: { title: "EOC adherence", sub: "Shows only exist once the end-of-call form is filed.", period: true, tier: true },
+    baseline: { title: "Baseline", sub: "Oct 11 to 18, Tier A and B only.", period: false, tier: false },
+  };
+  function route() {
+    const h = location.hash.slice(1);
+    const known = Object.prototype.hasOwnProperty.call(VIEWS, h);
+    if (h && !known && state.view && document.getElementById(h)) return;   // an in-page anchor (skip link): stay on this view
+    if (h && !known) history.replaceState(null, "", "#today");
+    const v = known ? h : "today";
+    const first = state.view !== v;
+    state.view = v;
+    const cfg = VIEWS[v];
+    for (const s of document.querySelectorAll(".view[data-view]")) s.hidden = s.dataset.view !== v;
+    for (const a of document.querySelectorAll(".nav a")) { if (a.dataset.view === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }
+    $("viewTitle").textContent = cfg.title; $("viewSub").textContent = cfg.sub;
+    $("gPeriod").hidden = !cfg.period; $("gTier").hidden = !cfg.tier; $("scope").hidden = !cfg.period;
+    $("filters").hidden = !cfg.period && !cfg.tier;
+    document.title = `${cfg.title} · Show Rate Ledger`;
+    hideTip();
+    if (first) window.scrollTo(0, 0);
+    const cur = document.querySelector(".nav a[aria-current]");   // phone tab bar: keep the active tab in view
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
   function render() {
@@ -773,8 +1008,8 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     renderBaseline();
     const d = state.data;
     $("scope").textContent = `${niceDate(from.toISOString())} – ${niceDate(new Date(Math.min(to, now) - 1).toISOString())}`;
-    $("meta").replaceChildren(...[["Tracking from", "Mon Oct 19"], ["Baseline", "Oct 11 – 18"], ["Updated", niceDate(d.generated_at, true)]]
-      .map(([k, v]) => { const s = el("span"); s.append(el("b", {}, k + " "), document.createTextNode(v)); return s; }));
+    $("updated").textContent = `Updated ${niceDate(d.generated_at, true)}`;
+    $("sideFoot").textContent = "Tracking from Oct 19";
   }
 
   function wire(id, key) {
@@ -787,12 +1022,13 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     });
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
-  $("foot").append(el("span", {}, "Sources: ROAS applications · GHL calendar and availability · Airtable (Closer and Setter EOC) · Close (confirmations)"), el("span", {}, "Rebuilt early every morning ET · no lead names, emails or phone numbers stored; the morning report shows team names and Close links, behind this password"));
+  addEventListener("hashchange", route);
+  route();
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then((d) => { state.data = d; render(); })
-    .catch(() => { $("app").replaceChildren(el("p", { class: "empty" }, "Couldn't load the data. If you opened this file directly, serve the folder instead (python -m http.server).")); });
+    .catch(() => { $("app").replaceChildren(el("p", { class: "card empty" }, "Couldn't load the data. If you opened this file directly, serve the folder instead (python -m http.server).")); });
 })();
 </script>
 </body>
