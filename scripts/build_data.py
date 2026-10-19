@@ -133,6 +133,11 @@ def load_roas_events():
     seen, out = set(), []
     for ev in json.load(open(ROAS_EVENTS, encoding="utf8")):
         key = ev.get("deliveryId") or json.dumps(ev, sort_keys=True)
+        # ROAS "send test" replays a canned sample (fitness questions, dated July 2026): real applications reach us
+        # within seconds, so anything completed more than 2 days before it arrived is a test, not a lead
+        done, got = (ev.get("submission") or {}).get("completedAtUtc"), ev.get("receivedAt")
+        if done and got and iso(got) - iso(done) > dt.timedelta(days=2):
+            continue
         if key not in seen:  # ROAS retries a delivery with the same id
             seen.add(key)
             out.append(ev)
