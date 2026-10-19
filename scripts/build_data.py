@@ -82,12 +82,18 @@ def env(name):
     return v
 
 
-def http(url, headers, tries=5):
+HTTP = {"timeout": 60, "tries": 5, "deadline": None}   # live_today() tightens these for the page's live check
+
+
+def http(url, headers, tries=None):
+    tries = tries or HTTP["tries"]
     for attempt in range(tries):
+        if HTTP["deadline"] and time.time() > HTTP["deadline"]:
+            raise SystemExit("live check took too long")
         try:
             # GHL's edge rejects Python's default User-Agent with 403
             req = urllib.request.Request(url, headers={**headers, "User-Agent": "lns-dashboard/1.0 (+github actions)"})
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=HTTP["timeout"]) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and attempt < tries - 1:
@@ -97,6 +103,13 @@ def http(url, headers, tries=5):
                         wait = max(31, int(e.headers.get("Retry-After") or 0))  # Airtable locks the base for 30 s
                     except ValueError:  # an HTTP-date instead of seconds
                         wait = 31
+                elif e.code == 429:   # Close / GHL say how long to wait
+                    try:
+                        wait = max(wait, float(e.headers.get("Retry-After") or 0))
+                    except ValueError:
+                        pass
+                if HTTP["deadline"]:
+                    wait = min(wait, 5)
                 time.sleep(wait)
                 continue
             raise SystemExit(f"GET {url.split('?')[0]} -> {e.code}")
@@ -360,12 +373,14 @@ FULL, NEARLY_FULL = 0, 2   # open slots tomorrow: red "hand to setter" at 0, amb
 
 
 def build_report(events, by_ghl, lead_of, now):
-    """The morning sales report (Nabeel 2026-10-19), as of this build (early morning ET, daily):
-    unconfirmed  today's calls (ET) nobody has confirmed yet
-    capacity     open slots / calls still to come per calendar for today and the next 2 days (GHL free-slots: calendar
-                 blocks and double-booking are already in it). A closer calendar is "full" (red, hand to setter) with
-                 no open slot tomorrow, "nearly_full" (amber) at 2 or fewer, "closed" when tomorrow has neither open
-                 slots nor calls (no working hours: not a capacity problem). When full, the hand-over candidates are
+    """The Today report (Nabeel 2026-10-19; review Oct 19). Built daily, and the availability part again live on page
+    view through live_today() / api/today.py:
+    capacity     per calendar (Tier A, B, C) for today and the next 2 days: open slots still bookable (GHL free-slots:
+                 calendar blocks and double-booking are already in it), booked calls, and of those confirmed /
+                 unconfirmed (Nabeel's review, Oct 19). Status from tomorrow: "full" (red) with no open slot,
+                 "nearly_full" (amber) at 2 or fewer, "closed" when tomorrow has neither open slots nor calls (no
+                 working hours). Tier C gets a status too (a signal to hire a setter). When a closer calendar is full,
+                 the hand-over candidates are
                  the LATER-booked call(s) in each closer's slot holding more than one call (the double-booking itself).
     missing_eoc  yesterday's calls (ET) with no EOC, or a blank one: closer for A/B, setter for C (follow-up calendars
                  left out; a lead not in Close can't be checked; calls the team cancelled in GHL are left out)
@@ -379,11 +394,12 @@ def build_report(events, by_ghl, lead_of, now):
         print("WARNING report: GHL users not readable:", type(ex).__name__)
         names = None
     try:
-        per_slot = {c["id"]: c.get("appoinmentPerSlot") or c.get("appointmentPerSlot") or 1
-                    for c in ghl("/calendars/", {"locationId": loc}).get("calendars", [])}
+        cals = ghl("/calendars/", {"locationId": loc}).get("calendars", [])
+        per_slot = {c["id"]: c.get("appoinmentPerSlot") or c.get("appointmentPerSlot") or 1 for c in cals}
+        members = {c["id"]: [m.get("userId") for m in c.get("teamMembers") or [] if m.get("userId")] for c in cals}
     except (Exception, SystemExit) as ex:
         print("WARNING report: GHL calendars not readable:", type(ex).__name__)
-        per_slot = {}
+        per_slot, members = {}, {}
     today = now.astimezone(ET).date()
     days = [today + dt.timedelta(days=i) for i in range(3)]
     yesterday = today - dt.timedelta(days=1)
@@ -399,7 +415,6 @@ def build_report(events, by_ghl, lead_of, now):
     # live = not cancelled in GHL AND not cancelled by the lead through ROAS (GHL can still say booked: critic r6 #2)
     live = [(e, t) for e, t in events if e.get("startTime") and not is_cancel(e.get("appointmentStatus"))
             and (by_ghl.get(e["id"]) or {}).get("outcome") != "cancelled"]
-    unconfirmed = [row(e, t) for e, t in live if et_day(e) == today and not (by_ghl.get(e["id"]) or {}).get("confirmed")]
 
     missing = []
     for e, t in live:
@@ -415,7 +430,8 @@ def build_report(events, by_ghl, lead_of, now):
     capacity = []
     for cid, tier in REPORT_CALENDARS:
         mine = [(e, t) for e, t in live if e.get("calendarId") == cid]
-        cap = {"tier": tier, "who": sorted({who(e) for e, _ in mine}), "per_slot": per_slot.get(cid, 1),
+        team = sorted({names.get(u) or "Unknown" for u in members.get(cid, [])}) if names is not None else []
+        cap = {"tier": tier, "who": team or sorted({who(e) for e, _ in mine}), "per_slot": per_slot.get(cid, 1),
                "days": [], "error": None, "status": None, "hand_over": []}
         try:   # fetch AND parse inside: one odd answer marks this calendar unreadable, never the build (critic r6 #1)
             fs = ghl(f"/calendars/{cid}/free-slots", {"startDate": int(dt.datetime.combine(today, dt.time(), ET).timestamp() * 1000),
@@ -428,16 +444,19 @@ def build_report(events, by_ghl, lead_of, now):
             for d in days:
                 v = fs.get(d.isoformat())
                 slots = [s for s in ((v or {}).get("slots") or []) if iso(str(s)) > now]   # still bookable
-                ahead = [e for e, _ in mine if et_day(e) == d and iso(e["startTime"]) > now]   # calls still to come
-                cap["days"].append({"date": d.isoformat(), "open": len(slots), "booked": len(ahead)})
+                booked = [e for e, _ in mine if et_day(e) == d]   # every live call that day, held or still ahead
+                conf = sum(1 for e in booked if (by_ghl.get(e["id"]) or {}).get("confirmed"))
+                cap["days"].append({"date": d.isoformat(), "open": len(slots), "booked": len(booked),
+                                    "confirmed": conf, "unconfirmed": len(booked) - conf})
         except (Exception, SystemExit) as ex:
-            cap["error"], cap["days"] = type(ex).__name__, [{"date": d.isoformat(), "open": None, "booked": None} for d in days]
+            cap["error"], cap["days"] = type(ex).__name__, [{"date": d.isoformat(), "open": None, "booked": None,
+                                                             "confirmed": None, "unconfirmed": None} for d in days]
             print(f"WARNING report: free slots for Tier {tier} not readable:", cap["error"])
-        if not cap["error"] and tier != "C":
+        if not cap["error"]:
             tm = cap["days"][1]
             cap["status"] = ("closed" if tm["open"] == 0 and tm["booked"] == 0 else "full" if tm["open"] <= FULL
                              else "nearly_full" if tm["open"] <= NEARLY_FULL else "ok")
-        if cap["status"] == "full":
+        if cap["status"] == "full" and tier != "C":
             by_slot = collections.defaultdict(list)
             for e, t in mine:
                 if et_day(e) == days[1]:
@@ -446,12 +465,83 @@ def build_report(events, by_ghl, lead_of, now):
                 calls.sort(key=lambda x: x[0].get("dateAdded") or "")
                 cap["hand_over"] += [row(e, t) for e, t in calls[1:]]   # the first booking keeps the closer
         capacity.append(cap)
-    print(f"report: {len(unconfirmed)} unconfirmed today, {len(missing)} missing EOCs yesterday, capacity "
+    print(f"report: {len(missing)} missing EOCs yesterday, capacity "
           + ", ".join(f'{c["tier"]} {c["status"] or c["error"] or "-"}' for c in capacity))
     return {"as_of": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "today": today.isoformat(), "yesterday": yesterday.isoformat(),
             "thresholds": {"full": FULL, "nearly_full": NEARLY_FULL},
-            "unconfirmed": sorted(unconfirmed, key=lambda r: r["call"]), "missing_eoc": sorted(missing, key=lambda r: r["call"]),
+            "missing_eoc": sorted(missing, key=lambda r: r["call"]),
             "capacity": capacity}
+
+
+def live_today(now=None):
+    """Availability for the Today view, live (api/today.py, on page view): only the Tier A/B/C calendars and today plus
+    the next 2 days. Per view: ~3 GHL calendar reads, 3 free-slot reads, users + calendars, and per booked lead one GHL
+    contact read, one Close lead search and one Close texts read. No Airtable (its monthly quota is shared with Make)
+    and no Blob (Hobby operation quota). Missing EOCs stay with the daily build.
+    Confirmed = the same rule as the daily build: Close "Confirmed Booking" = Yes or "LNS Confirmation" = CONFIRMED on
+    the lead's latest live booking (any calendar, made since the baseline), or a texted yes between booking and call.
+    Counts every booking in the window (the daily build only those made since the baseline, so live is the more
+    complete one for capacity). A cancel through the ROAS link only reaches
+    the daily build (GHL normally cancels the appointment too)."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    HTTP.update(timeout=10, tries=2, deadline=time.time() + 45)   # fail fast, well inside Vercel's 60 s
+    try:
+        return _live_today(now)
+    finally:
+        HTTP.update(timeout=60, tries=5, deadline=None)
+
+
+def _live_today(now):
+    loc = env("GHL_LOCATION_ID")
+    today = now.astimezone(ET).date()
+    base = iso(BASELINE)
+    lo, hi = int((base - dt.timedelta(days=35)).timestamp() * 1000), int((now + dt.timedelta(days=120)).timestamp() * 1000)
+    d0, d3 = dt.datetime.combine(today, dt.time(), ET), dt.datetime.combine(today + dt.timedelta(days=3), dt.time(), ET)
+    report_cals = dict(REPORT_CALENDARS)
+    events, latest = [], {}
+    # the same booking range and "latest live booking per person" as main(): Close's confirmation fields describe a
+    # person's latest booking, on ANY calendar (critic r9 M2)
+    allev = []
+    for cid in CALENDARS:
+        allev += ghl("/calendars/events", {"locationId": loc, "calendarId": cid, "startTime": lo, "endTime": hi}).get("events", [])
+    for e in sorted(allev, key=lambda x: x.get("dateAdded") or ""):
+        if not e.get("dateAdded") or not e.get("startTime") or is_cancel(e.get("appointmentStatus")):
+            continue
+        if iso(e["dateAdded"]) >= base:
+            latest[e.get("contactId")] = e["id"]
+        if e.get("calendarId") in report_cals and d0 <= iso(e["startTime"]) < d3:
+            events.append((e, report_cals[e["calendarId"]]))
+    failed = 0
+
+    def confirmed(item):
+        nonlocal failed
+        try:
+            return _confirmed(item)
+        except (Exception, SystemExit):   # one odd lead never drops the whole live answer (critic r9 m2)
+            failed += 1
+            return item[0]["id"], {"confirmed": False}, None
+
+    def _confirmed(item):
+        e, _ = item
+        c = e.get("contactId")
+        contact = ghl(f"/contacts/{c}", {}).get("contact", {}) if c else {}
+        email = (contact.get("email") or "").strip().lower()
+        lead = close("/lead/", {"query": f'email:"{email}"', "_limit": 1,
+                                "_fields": f"id,custom.{CONFIRMED_BOOKING},custom.{LNS_CONFIRMATION}"})["data"] if email else []
+        if not lead:
+            return e["id"], {"confirmed": False}, None
+        L = lead[0]
+        yes = (latest.get(c) == e["id"] and (L.get(f"custom.{CONFIRMED_BOOKING}") == "Yes" or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED")) \
+            or texted_yes(L["id"], iso(e["dateAdded"]), iso(e["startTime"]))
+        return e["id"], {"confirmed": bool(yes)}, L["id"]
+
+    with cf.ThreadPoolExecutor(8) as ex:   # ~30 leads: about 10 s from the US
+        res = list(ex.map(confirmed, events))
+    by_ghl = {g: r for g, r, _ in res}
+    lead_of = {g: lid for g, _, lid in res}
+    rep = build_report(events, by_ghl, lead_of, now)
+    return {"as_of": rep["as_of"], "today": rep["today"], "thresholds": rep["thresholds"], "capacity": rep["capacity"],
+            "lookup_failures": failed}
 
 
 ROAS_EVENTS = os.environ.get("ROAS_EVENTS_OUT") or os.path.join(__import__("tempfile").gettempdir(), "roas_events.json")

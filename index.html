@@ -110,6 +110,12 @@ h1 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin: 0; line-
 .info:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 1px; }
 #tip { position: fixed; z-index: 60; max-width: 280px; background: var(--ink); color: var(--page); font: 400 12px/1.45 var(--sans); padding: 8px 10px; border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 
+/* ---------- availability table: one group of 4 numbers per day ---------- */
+.tbl-avail th.grp { text-align: center; border-left: 1px solid var(--ring); font-weight: 600; }
+.tbl-avail td.g0, .tbl-avail th.g0 { border-left: 1px solid var(--ring); }
+.tbl-avail td.zero { color: var(--muted); }
+.tbl-avail td.unc { color: var(--warn-ink); font-weight: 600; }
+.hand-card .note { margin: 0 0 10px; }
 /* ---------- tables ---------- */
 .tbl-scroll { overflow: auto; max-height: min(72vh, 720px); max-width: 100%; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
@@ -117,6 +123,12 @@ th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--gr
 th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 150px; max-width: 300px; position: sticky; left: 0; z-index: 1; }
 thead th { white-space: normal; position: sticky; top: 0; z-index: 2; background: var(--head); font-weight: 600; font-size: 11.5px; color: var(--ink-2); border-bottom: 1px solid var(--axis); vertical-align: middle; padding-top: 8px; padding-bottom: 8px; }
 thead th:first-child { z-index: 3; }
+.tbl-avail thead tr + tr th { top: 33px; }   /* second header row (Open / Booked / ...) sticks under the day names */
+/* the sub-header row's first cell is "Open", not the Calendar column: no first-column width, stickiness or alignment */
+.tbl-avail thead tr + tr th:first-child { min-width: 0; max-width: none; position: sticky; left: auto; text-align: right; z-index: 2; }
+.tbl-avail td, .tbl-avail thead tr + tr th { min-width: 52px; padding-left: 8px; padding-right: 8px; }
+.tbl-avail td:first-child { min-width: 150px; }
+@media (max-width: 760px) { .tbl-avail td:first-child { min-width: 128px; } }
 .th-in { display: inline-flex; align-items: center; gap: 5px; }
 th button.sort { all: unset; box-sizing: border-box; cursor: pointer; border-radius: 3px; }
 th button.sort:hover { color: var(--ink); }
@@ -129,8 +141,6 @@ tbody tr:last-child td { border-bottom: 0; }
 tr.total td { font-weight: 600; background: var(--head); border-top: 1px solid var(--axis); }
 tr.sep td { border-top: 1px solid var(--axis); }
 tr.total:hover td { background: var(--head); }
-.slot { font: 12px var(--mono); }
-.slot em { font-style: normal; color: var(--muted); }
 .small-n { color: var(--muted); }
 .lbl { display: inline-flex; align-items: center; gap: 8px; }
 .lbl i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex: none; }
@@ -285,14 +295,14 @@ td a { color: var(--accent); text-underline-offset: 3px; }
 
         <!-- TODAY -->
         <section class="view" id="v-today" data-view="today" hidden aria-label="Today">
-          <div id="repNone" class="card empty" hidden><b>No morning report yet.</b>It appears after the next daily build.</div>
+          <div id="repNone" class="card empty" hidden><b>No Today data yet.</b>It appears after the next build.</div>
           <div id="repBody" class="view">
             <div class="strip" id="repStrip"></div>
             <div class="today-grid">
-              <div class="card"><div class="card-head"><h2 class="card-title" id="repCapTitle">Closer capacity</h2><span class="card-sub" id="repCapSub"></span></div>
-                <div class="tbl-scroll"><table id="repCap" class="tbl-mid"></table></div><div class="note-wrap" id="repHand" style="padding-top:12px"></div></div>
-              <div class="card"><div class="card-head"><h2 class="card-title" id="repUncTitle">Today's calls not confirmed</h2><span class="card-sub" id="repUncSub"></span></div>
-                <div class="tbl-scroll"><table id="repUnc" class="list"></table></div></div>
+              <div class="card"><div class="card-head"><h2 class="card-title" id="repCapTitle">Availability</h2><span class="card-sub" id="repCapSub"></span><button type="button" class="tbl-btn" id="liveBtn">Refresh</button></div>
+                <div class="tbl-scroll"><table id="repCap" class="tbl-avail"></table></div></div>
+              <div class="card hand-card" id="repHandCard" hidden><div class="card-head"><h2 class="card-title" id="repHandTitle">Hand to setter</h2><span class="card-sub" id="repHandSub"></span></div>
+                <div id="repHand"></div></div>
               <div class="card"><div class="card-head"><h2 class="card-title" id="repEocTitle">Yesterday's missing EOCs</h2><span class="card-sub" id="repEocSub"></span></div>
                 <div class="rep-who" id="repWho"></div><div class="tbl-scroll"><table id="repEoc" class="list"></table></div></div>
             </div>
@@ -396,14 +406,17 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     counted: "Calls due minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
     cancelRate: "Cancelled by the lead divided by calls due.",
     reschedRate: "Rescheduled divided by calls due.",
-    capacity: "Open = slots still bookable (GHL). To come = calls still ahead.",
-    status: "Red when no slot is open, amber when few are left, green when there is room. Grey means no hours.",
-    missingEoc: "Calls from the previous day with no EOC filed, or one filed blank. Calls the team cancelled in GHL aren't listed. A confirmation or EOC that comes in later shows up in the next morning's build.",
-    unconfirmed: "Today's calls that nobody has confirmed. The report is rebuilt early every morning (7am ET in summer time, 6am in winter); filters don't apply.",
-    handover: "Double-booked slots: the later booking is the one to hand to a setter.",
+    open: "Time slots still bookable on the calendar right now (from GHL, so blocks and double-booking are already counted).",
+    booked: "Calls booked on the calendar that day (not cancelled).",
+    confirmedN: "Of the booked calls, how many leads confirmed: Anastasia marked CONFIRMED, Close \"Confirmed Booking\" = Yes, or the lead texted a clear yes.",
+    unconfirmedN: "Booked calls nobody has confirmed yet: the no-show risks.",
+    status: "Based on tomorrow. Red: no open slot (closers: hand to a setter; options are also more calendar space, triple booking or another closer. Tier C: a sign to hire a setter). Amber: 2 or fewer open. Green: room. Grey: no hours that day.",
+    missingEoc: "Calls from the previous day with no EOC filed, or one filed blank. Calls the team cancelled in GHL aren't listed. From the morning build.",
+    live: "Availability is checked live from GHL and Close when you open Today, then every 15 minutes while it's open (or press Refresh). If the live check fails, the morning build is shown.",
+    handover: "Only when a closer has no open slot tomorrow. In each of that closer's slots holding more than one call, every booking after the first is the one to pass to a setter; the first booking stays with the closer.",
     baseline: "Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only. Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically.",
     baseNoShow: "Includes cancellations and calls with no EOC filed.",
-    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Rebuilt early every morning ET. No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
+    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Today's availability is live (checked when you open Today and every 15 minutes); everything else is rebuilt each morning (7am ET in summer time, 6am in winter). No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
   };
   /* one shared tooltip: positioned in JS so a scrolling table never clips it; the text is also the button's accessible name */
   const tipEl = $("tip");
@@ -617,6 +630,8 @@ td a { color: var(--accent); text-underline-offset: 3px; }
   }
   function dimTable(title, key, isQuestion, rows, now) {
     const groups = new Map();
+    // timing tables list every bucket, even with no calls yet, so "Same day" is always visible (Nabeel's review)
+    if (["How far ahead it was booked", "Call time (lead's local time)", "Call day"].includes(title)) for (const k of ORDER[title]) groups.set(k, []);
     for (const a of rows) { const k = key(a); if (k == null || k === "") continue; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); }
     // the total and every share in this table cover only the rows it lists (timing tables have booked calls only)
     const total = tally([...groups.values()].flat(), now);
@@ -654,7 +669,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     thead.appendChild(hr);
     const tb = el("tbody");
     for (const r of list) tb.appendChild(row(r, title));
-    const tt = { k: "Total", apps: total.apps, booked: total.booked, confirmed: total.confirmed, shows: total.shows, pApps: 100, pBooked: 100,
+    const tt = { k: "Total", apps: total.apps, booked: total.booked, confirmed: total.confirmed, shows: total.shows, pApps: total.apps ? 100 : null, pBooked: total.booked ? 100 : null,
       cRate: pct(total.confirmed, total.booked), sRate: pct(total.shows, total.bookedS), t: total };
     const trT = row(tt, title); trT.classList.add("total"); tb.appendChild(trT);
     table.append(thead, tb); scroll.appendChild(table); card.appendChild(scroll);
@@ -704,8 +719,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     $("eocSub").textContent = past ? `${filed} of ${past} calls held in this period have an EOC filed` : "No call in this period has happened yet.";
   }
 
-  /* ---------- morning report (built at 7am ET; filters don't apply) ---------- */
-  const KIND_LABEL = { direct: "Direct", setter_led: "Setter-led", recovery: "Recovery", follow_up: "Follow-up", triage: "Triage" };
+  /* ---------- Today: availability, hand to setter, missing EOCs (refreshed every 15 min; filters don't apply) ---------- */
   const BADGE = {
     full: ["Hand to setter", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="var(--crit)"/><path d="M5 8h6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>'],
     closed: ["No hours", '<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="var(--muted)" stroke-width="1.8"/></svg>'],
@@ -714,9 +728,10 @@ td a { color: var(--accent); text-underline-offset: 3px; }
   };
   const etTime = (iso) => new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
   const etDay = (ymd) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }).format(new Date(ymd + "T12:00:00Z"));
-  function badge(status) {
+  function badge(status, tier) {
     const b = el("span", { class: "badge " + status });
-    const [label, icon] = BADGE[status] || [String(status), BADGE.closed[1]];   // unknown: neutral, never "Room"
+    let [label, icon] = BADGE[status] || [String(status), BADGE.closed[1]];   // unknown: neutral, never "Room"
+    if (status === "full" && tier === "C") label = "Full";                    // setters: a hiring signal, not a hand-over
     if (!BADGE[status]) b.className = "badge closed";
     b.innerHTML = icon;              // fixed markup above, never data
     b.appendChild(document.createTextNode(label));
@@ -742,89 +757,114 @@ td a { color: var(--accent); text-underline-offset: 3px; }
   }
   const tierCell = (tier) => { const td = el("td"), l = el("span", { class: "lbl" }), i = el("i"); i.style.background = tierColor(tier); l.append(i, document.createTextNode(["A", "B", "C"].includes(tier) ? `Tier ${tier}` : tier)); td.appendChild(l); return td; };
   const days0 = (r) => ((r.capacity || [])[0] || { days: [] }).days.map((d) => d.date);
+  // live availability (api/today): GHL + Close, computed on request; the morning build is the fallback
+  const live = { data: null, err: null, busy: false, okAt: 0, failAt: 0 };
+  async function loadLive(soft) {
+    if (live.busy || (soft && Date.now() - live.okAt < 90000)) return;
+    live.busy = true; $("liveBtn").disabled = true; $("liveBtn").textContent = "Checking…";
+    try {
+      const res = await fetch("api/today", { cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      const d = await res.json();
+      if (!Array.isArray(d.capacity)) throw new Error("bad answer");
+      live.data = d; live.err = null; live.okAt = Date.now();
+    } catch (e) { live.err = String((e && e.message) || e); live.failAt = Date.now(); }
+    finally {
+      live.busy = false; $("liveBtn").disabled = false; $("liveBtn").textContent = "Refresh";
+      if (state.data) renderReport();
+    }
+  }
   function renderReport() {
     const sec = $("repBody");
     try { drawReport(state.data.report, sec); }
     catch (e) {
       sec.hidden = true; $("repNone").hidden = false; console.error("morning report", e);
-      $("repNone").replaceChildren(el("b", {}, "The morning report couldn't be read."), document.createTextNode("The rest of the dashboard is fine; check the latest Vercel build log."));
+      $("repNone").replaceChildren(el("b", {}, "The Today view couldn't be read."), document.createTextNode("The rest of the dashboard is fine; check the latest Vercel build log."));
     }
   }
   function drawReport(r, sec) {
     if (!r) { sec.hidden = true; $("repNone").hidden = false; return; }
     sec.hidden = false; $("repNone").hidden = true;
-    r.capacity = r.capacity || []; r.unconfirmed = r.unconfirmed || []; r.missing_eoc = r.missing_eoc || [];
+    r.capacity = r.capacity || []; r.missing_eoc = r.missing_eoc || [];
+    // availability: live (api/today) when it answered, else the morning build; missing EOCs: the morning build
+    const A = live.data && Array.isArray(live.data.capacity) ? live.data : r;
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
-    const stale = r.today !== today;
-    const dayTwo = stale && days0(r)[1] ? `on ${etDay(days0(r)[1])}` : "tomorrow";
-    $("repUncTitle").textContent = stale ? `Calls on ${etDay(r.today)} not confirmed` : "Today's calls not confirmed";
-    $("repEocTitle").textContent = stale ? `Missing EOCs from ${etDay(r.yesterday)}` : "Yesterday's missing EOCs";
-    $("repUncTitle").appendChild(tip("unconfirmed", "Unconfirmed calls"));
+    const stale = A.today !== today, eocStale = r.today !== today;
+    const dayTwo = stale && days0(A)[1] ? `on ${etDay(days0(A)[1])}` : "tomorrow";
+    $("repEocTitle").textContent = eocStale ? `Missing EOCs from ${etDay(r.yesterday)}` : "Yesterday's missing EOCs";
     $("repEocTitle").appendChild(tip("missingEoc", "Missing EOCs"));
-    // status strip: one chip per calendar, then the two counts and when the report was built
+    const dayName = (d, i) => (stale || i > 1 ? etDay(d) : i === 0 ? "Today" : "Tomorrow");
+    // status strip: one chip per tier, then missing EOCs and when the data was built
     const strip = $("repStrip"); strip.replaceChildren();
-    for (const c of r.capacity) {
+    for (const c of A.capacity) {
       const chip = el("div", { class: "chip" }), k = el("div", { class: "chip-k" }), sw = el("i");
       sw.style.background = tierColor(c.tier);
       k.append(sw, document.createTextNode(["A", "B", "C"].includes(c.tier) ? `Tier ${c.tier}` : String(c.tier)));
       const v = el("div", { class: "chip-v" });
       if (c.error) v.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
-      else if (c.status) v.appendChild(badge(c.status));
-      else v.appendChild(el("span", { class: "small-n" }, "setter calendar"));
+      else if (c.status) v.appendChild(badge(c.status, c.tier));
       chip.append(k, v); strip.appendChild(chip);
     }
     const cnt = (label, n, tk) => { const chip = el("div", { class: "chip" }), k = el("div", { class: "chip-k" }); k.append(document.createTextNode(label), tip(tk, label)); chip.append(k, el("div", { class: "chip-v big" }, String(n))); return chip; };
-    strip.append(cnt(stale ? "Unconfirmed" : "Unconfirmed today", r.unconfirmed.length, "unconfirmed"), cnt(stale ? "Missing EOCs" : "Missing EOCs yesterday", r.missing_eoc.length, "missingEoc"));
-    const asof = el("div", { class: "chip" }), ak = el("div", { class: "chip-k" }, "Report built");
-    asof.append(ak, el("div", { class: "chip-v" }, `${niceDate(r.as_of, true)}` + (stale ? " · not today's" : ""))); strip.appendChild(asof);
-    // capacity: one row per calendar, three days
+    strip.append(cnt(eocStale ? "Missing EOCs" : "Missing EOCs yesterday", r.missing_eoc.length, "missingEoc"));
+    const fresh = A !== r && Date.now() - live.okAt < 10 * 60000 && !live.err;
+    const asof = el("div", { class: "chip" }), ak = el("div", { class: "chip-k" }, A === r ? "Availability from" : fresh ? "Availability live" : "Last live check");
+    ak.appendChild(tip("live", "Live availability"));
+    const av = el("div", { class: "chip-v" }, `${niceDate(A.as_of, true)}` + (stale ? " · not today's" : ""));
+    const warn = (t) => av.appendChild(el("div", { class: "small-n", style: "font-size:11px" }, t));
+    if (live.err) warn(A === r ? "live check failed, showing the morning build" : `latest live check failed at ${etTime(new Date(live.failAt).toISOString())}`);
+    else if (A !== r && A.lookup_failures) warn(`${A.lookup_failures} lead${A.lookup_failures === 1 ? "" : "s"} couldn't be checked (counted unconfirmed)`);
+    asof.append(ak, av); strip.appendChild(asof);
+
+    // availability: Tier A / B / C x (today, tomorrow, the day after) x (open, booked, confirmed, unconfirmed)
     const cap = $("repCap"); cap.replaceChildren();
-    const days = (r.capacity[0] || { days: [] }).days.map((d) => d.date);
-    const thead = el("thead"), hr = el("tr");
-    // status right after the calendar: on a phone the rest scrolls, the verdict stays in view
-    const stH = th("Status", "status"); stH.style.textAlign = "left";
-    hr.append(th("Calendar"), stH);
-    days.forEach((d, i) => hr.appendChild(th(stale || i > 1 ? etDay(d) : i === 0 ? "Rest of today" : "Tomorrow", i === 0 ? "capacity" : null)));
-    thead.appendChild(hr);
+    const days = days0(A);
+    const thead = el("thead"), h1 = el("tr"), h2 = el("tr");
+    const c0 = th("Calendar"); c0.rowSpan = 2; const s0 = th("Status", "status"); s0.rowSpan = 2; s0.style.textAlign = "left";
+    h1.append(c0, s0);
+    days.forEach((d, i) => { const g = el("th", { scope: "colgroup", colspan: "4", class: "grp" }, dayName(d, i)); h1.appendChild(g);
+      [["Open", "open"], ["Booked", "booked"], ["Confirmed", "confirmedN"], ["Unconfirmed", "unconfirmedN"]].forEach(([lab, tk], k) => h2.appendChild(th(lab, i === 0 ? tk : null, k === 0 ? "g0" : ""))); });   // definitions once, on the first day
+    thead.append(h1, h2);
     const tb = el("tbody");
-    for (const c of r.capacity) {
+    for (const c of A.capacity) {
       const tr = el("tr"), first = tierCell(c.tier);
       first.appendChild(el("div", { class: "cell-sub" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + (c.per_slot > 1 ? ` · ${c.per_slot} per slot` : "")));
       tr.appendChild(first);
       const st = el("td", { style: "text-align:left" });
       if (c.error) st.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
-      else if (c.status) st.appendChild(badge(c.status));
-      else st.appendChild(el("span", { class: "small-n" }, "setter calendar"));
+      else if (c.status) st.appendChild(badge(c.status, c.tier));
+      else st.appendChild(el("span", { class: "small-n" }, "–"));
       tr.appendChild(st);
       for (const d of c.days) {
-        const td = el("td"), s = el("span", { class: "slot" });
-        if (c.error || d.open == null) s.textContent = "–";
-        else s.append(document.createTextNode(`${d.open} open`), el("em", {}, ` · ${d.booked} to come`));
-        td.appendChild(s); tr.appendChild(td);
+        [d.open, d.booked, d.confirmed, d.unconfirmed].forEach((v, k) => {
+          const cls = [k === 0 ? "g0" : "", v === 0 ? "zero" : "", k === 3 && v > 0 ? "unc" : ""].join(" ").trim();
+          tr.appendChild(el("td", cls ? { class: cls } : {}, c.error || v == null ? "–" : String(v)));
+        });
       }
       tb.appendChild(tr);
     }
     cap.append(thead, tb);
-    $("repCapSub").textContent = `Red at ${r.thresholds.full} open ${dayTwo}, amber at ${r.thresholds.nearly_full} or fewer`;
-    const hand = r.capacity.filter((c) => c.status === "full");
-    const box = $("repHand"); box.replaceChildren(); box.hidden = !hand.length;
+    $("repCapSub").textContent = `Status from ${dayTwo}: red at ${A.thresholds.full} open slots, amber at ${A.thresholds.nearly_full} or fewer`;
+
+    // hand to setter: its own card, only when a closer calendar is full tomorrow
+    const hand = A.capacity.filter((c) => c.status === "full" && c.tier !== "C");
+    $("repHandCard").hidden = !hand.length;
+    const ht = $("repHandTitle"); ht.textContent = `Hand to setter · ${stale ? etDay(days[1] || A.today) : "Tomorrow, " + etDay(days[1] || A.today)}`;
+    ht.appendChild(tip("handover", "Hand to setter"));
+    $("repHandSub").textContent = hand.map((c) => `Tier ${c.tier} (${c.who.join(", ")}) is full`).join(" · ");
+    const box = $("repHand"); box.replaceChildren();
     for (const c of hand) {
-      const n = el("div", { class: "note crit" });
-      const span = el("span");
+      const n = el("div", { class: "note crit" }), span = el("span");
       const list = c.hand_over || [];
-      span.textContent = `Tier ${c.tier} has no open slot ${dayTwo}. ` + (list.length
-        ? `In each closer's slot holding more than one call ${dayTwo}, the later booking is the one to hand to a setter (${list.length}):`
-        : "No double-booked slot tomorrow, so nothing obvious to hand over; new bookings will need a setter.");
+      span.textContent = list.length
+        ? `Tier ${c.tier} has no open slot ${dayTwo}. ${list.length} call${list.length === 1 ? "" : "s"} to pass to a setter: in each slot holding more than one call, every booking after the first. The first booking stays with its closer.`
+        : `Tier ${c.tier} has no open slot ${dayTwo} and no slot holds more than one call, so there is nothing to hand over yet; new bookings will need a setter.`;
       n.appendChild(span); box.appendChild(n);
       if (list.length) {
-        const t = el("table", { class: "list" }), w = el("div", { class: "tbl-scroll", style: "border:1px solid var(--grid);border-radius:6px" }); w.appendChild(t); box.appendChild(w);
-        listTable(t, ["Time (ET)", "With", "Confirmed", "Lead"], list, (x) => [etTime(x.call), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
+        const t = el("table", { class: "list" }), w = el("div", { class: "tbl-scroll", style: "border:1px solid var(--grid);border-radius:6px;margin-bottom:10px" }); w.appendChild(t); box.appendChild(w);
+        listTable(t, ["Time (ET)", "Tier", "Now with", ["Confirmed", "confirmedN"], "Lead"], list, (x) => [etTime(x.call), tierCell(x.tier), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
       }
     }
-    // today's unconfirmed
-    $("repUncSub").textContent = r.unconfirmed.length ? `${r.unconfirmed.length} call${r.unconfirmed.length === 1 ? "" : "s"}` : "";
-    listTable($("repUnc"), ["Time (ET)", "Tier", ["Type", "kind"], "With", "Lead"], r.unconfirmed,
-      (x) => [etTime(x.call), tierCell(x.tier), KIND_LABEL[x.kind] || "–", x.who, closeLink(x.close)], stale ? `Every call on ${etDay(r.today)} was confirmed.` : "Every call today is confirmed.");
     // yesterday's missing EOCs, with a count per person
     $("repEocSub").textContent = `${etDay(r.yesterday)} · Closer EOC for A and B, Setter EOC for C`;
     const per = {};
@@ -969,7 +1009,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
 
   /* ---------- views: one page each, switched by the URL hash ---------- */
   const VIEWS = {
-    today: { title: "Today", sub: "Closer capacity, unconfirmed calls and missing EOCs.", period: false, tier: false },
+    today: { title: "Today", sub: "Availability, calls to hand to a setter, missing EOCs.", period: false, tier: false },
     "show-rates": { title: "Show rates", sub: "Calls by booking type, grouped by call time.", period: true, tier: false },
     applications: { title: "Applications", sub: "Grouped by application date. Small groups are hints.", period: true, tier: true },
     eoc: { title: "EOC adherence", sub: "Shows only exist once the end-of-call form is filed.", period: true, tier: true },
@@ -992,6 +1032,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     document.title = `${cfg.title} · Show Rate Ledger`;
     hideTip();
     if (first) window.scrollTo(0, 0);
+    if (first && v === "today" && state.data) loadLive();   // opening Today = a live check (critic r9 M1)
     const cur = document.querySelector(".nav a[aria-current]");   // phone tab bar: keep the active tab in view
     if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
@@ -1022,12 +1063,16 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     });
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
+  $("liveBtn").addEventListener("click", loadLive);
+  // Today keeps itself fresh: a live check on opening it, then every 15 minutes while it is open and visible (Nabeel; fewer calls on shared GHL/Close keys)
+  setInterval(() => { if (state.view === "today" && !document.hidden) loadLive(); }, 15 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && state.view === "today") loadLive(true); });
   addEventListener("hashchange", route);
   route();
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((d) => { state.data = d; render(); })
+    .then((d) => { state.data = d; render(); if (state.view === "today") loadLive(); })
     .catch(() => { $("app").replaceChildren(el("p", { class: "card empty" }, "Couldn't load the data. If you opened this file directly, serve the folder instead (python -m http.server).")); });
 })();
 </script>

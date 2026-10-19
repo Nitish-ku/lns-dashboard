@@ -1,6 +1,8 @@
 // Password gate (browser login box) for the whole site, set DASHBOARD_PASSWORD in Vercel. Any username works.
-// /api/roas (ROAS webhook, own secret) and /api/refresh (Vercel cron, own secret) stay reachable.
-export const config = { matcher: ["/((?!api/).*)"] };
+// /api/roas (ROAS webhook, own secret) and /api/refresh (Vercel cron, own secret) stay outside it; everything else,
+// including /api/today (live availability, team names and Close links), is behind the password.
+// exact route names only, so a future api/roas-something is gated by default (critic r9 s1)
+export const config = { matcher: ["/((?!api/(?:roas|refresh)(?:/|$)).*)"] };
 
 const enc = new TextEncoder();
 async function digest(s) {

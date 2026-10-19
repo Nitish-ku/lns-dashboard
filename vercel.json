@@ -18,5 +18,12 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/today.py": {
+      "maxDuration": 60,
+      "includeFiles": "scripts/build_data.py",
+      "excludeFiles": "{node_modules/**,data/**,public/**,notes/**,*.md,.env}"
+    }
+  }
 }
