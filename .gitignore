@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+node_modules/
 # generated at build time (Vercel), never committed: the repo is public
 data/
+public/
 .vercel
