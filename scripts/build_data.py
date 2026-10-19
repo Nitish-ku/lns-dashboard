@@ -32,6 +32,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zoneinfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "bookings.json")
@@ -106,13 +107,38 @@ def iso(s):
     return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
 
 
-def outcome_of(lead_id, call_passed):
-    statuses = [o["status_label"] for o in close("/opportunity/", {"lead_id": lead_id, "_fields": "status_label"})["data"]]
-    if set(statuses) & SHOWED:
-        return "showed"
-    if "No Show" in statuses:
-        return "no_show"
-    return "no_eoc" if call_passed else "upcoming"
+def outcome_of(lead_id, booked, call, now):
+    """The EOC outcome of THIS booking (critic #2): only opportunities created for it (from an hour before it was
+    booked) or updated after its call count; an old 'Lost' or 'No Show' from an earlier booking is ignored.
+    If several match, the most recently updated one decides."""
+    opps = close("/opportunity/", {"lead_id": lead_id, "_fields": "status_label,date_created,date_updated"})["data"]
+    mine = [o for o in opps if iso(o["date_created"]) >= booked - dt.timedelta(hours=1)
+            or iso(o.get("date_updated") or o["date_created"]) >= call - dt.timedelta(hours=1)]
+    for o in sorted(mine, key=lambda o: o.get("date_updated") or o["date_created"], reverse=True):
+        if o["status_label"] in SHOWED:
+            return "showed"
+        if o["status_label"] == "No Show":
+            return "no_show"
+    return "no_eoc" if call < now else "upcoming"
+
+
+def is_cancel(status, event=None):
+    """ROAS / GHL spell it both ways (critic #7)."""
+    return (status or "").lower() in ("cancelled", "canceled", "invalid") or "cancel" in (event or "").lower()
+
+
+def safe_tz(tz):
+    """A non-IANA timezone would crash the page's date code (critic #15)."""
+    try:
+        zoneinfo.ZoneInfo(tz)
+        return tz
+    except Exception:  # noqa: BLE001
+        return "America/New_York"
+
+
+def rid_of(raw):
+    """Anonymous record id, salted (critic #8): without the build's secret nobody can link a record to a GHL/ROAS id."""
+    return hashlib.sha256((os.environ.get("ROAS_WEBHOOK_SECRET", "") + "|" + raw).encode()).hexdigest()[:12]
 
 
 def texted_yes(lead_id, booked, call):
@@ -133,10 +159,11 @@ def load_roas_events():
     seen, out = set(), []
     for ev in json.load(open(ROAS_EVENTS, encoding="utf8")):
         key = ev.get("deliveryId") or json.dumps(ev, sort_keys=True)
-        # ROAS "send test" replays a canned sample (fitness questions, dated July 2026): real applications reach us
-        # within seconds, so anything completed more than 2 days before it arrived is a test, not a lead
+        # ROAS "send test" replays a canned sample (fitness questions, dated July 2026). Only a FORM-COMPLETION event can
+        # be judged by age: booking events (cancel / reschedule / confirm) legitimately arrive days after the application
+        # (critic #1). Test booking events are dropped later because their application predates FORWARD_FROM.
         done, got = (ev.get("submission") or {}).get("completedAtUtc"), ev.get("receivedAt")
-        if done and got and iso(got) - iso(done) > dt.timedelta(days=2):
+        if ev.get("event") == "completed_lead" and done and got and iso(got) - iso(done) > dt.timedelta(days=2):
             continue
         if key not in seen:  # ROAS retries a delivery with the same id
             seen.add(key)
@@ -158,32 +185,43 @@ def build_apps(events, by_ghl, ghl_status, now):
         sub = ev.get("submission") or {}
         if not sub.get("id") or sub.get("status") not in (None, "complete"):
             continue
-        a = apps.setdefault(sub["id"], {"sub": sub, "lead": ev.get("lead") or {}, "appts": {}, "prospect_cancel": set()})
+        a = apps.setdefault(sub["id"], {"sub": sub, "lead": ev.get("lead") or {}, "appts": {}, "seen": {}, "prospect_cancel": set()})
         if sub.get("answers"):
             a["sub"] = sub
         ap = ev.get("appointment")
         if ap and ap.get("providerBookingId"):
-            a["appts"][ap["providerBookingId"]] = ap  # latest event wins (rescheduled -> new time)
-            if (ap.get("status") or "").lower() == "cancelled":
-                a["prospect_cancel"].add(ap["providerBookingId"])
-    out = []
+            gid = ap["providerBookingId"]
+            a["appts"][gid] = ap  # latest event wins (rescheduled -> new time)
+            a["seen"][gid] = ev.get("createdAtUtc") or ev.get("receivedAt") or ""
+            if is_cancel(ap.get("status"), ev.get("event")):
+                a["prospect_cancel"].add(gid)
+    out, misses = [], 0
     for sid, a in apps.items():
         sub = a["sub"]
+        done = sub.get("completedAtUtc") or sub.get("startedAtUtc")
+        if not done or iso(done) < iso(FORWARD_FROM):
+            continue  # before tracking started, or a ROAS test sample (dated July 2026)
         rec = {
-            "id": hashlib.sha256(sid.encode()).hexdigest()[:12],
+            "id": rid_of(sid),
             "completed": sub.get("completedAtUtc") or sub.get("startedAtUtc"),
             "qualified": sub.get("qualification") == "qualified",
             "score": sub.get("score"),
             "ending": (sub.get("ending") or {}).get("name"),
             "answers": {x["label"]: answer_value(x) for x in sub.get("answers") or [] if answer_value(x) is not None},
             "utm": sub.get("utm") or {},
-            "tz": a["lead"].get("timezone") or "America/New_York",
+            "tz": safe_tz(a["lead"].get("timezone") or "America/New_York"),
             "booking": None,
         }
         if a["appts"]:
-            gid, ap = sorted(a["appts"].items(), key=lambda kv: kv[1].get("scheduledAtUtc") or "")[-1]
+            # the live booking (critic #3): one nobody cancelled, most recent event first; a cancelled one only if all are
+            def dead(g):
+                return g in a["prospect_cancel"] or is_cancel(ghl_status.get(g))
+            gid = sorted(a["appts"], key=lambda g: (not dead(g), a["seen"].get(g, "")))[-1]
+            ap = a["appts"][gid]
             b = by_ghl.get(gid) or {}
-            cancelled = ghl_status.get(gid) in ("cancelled", "invalid") or (ap.get("status") or "").lower() == "cancelled"
+            if not b:
+                misses += 1
+            cancelled = dead(gid)
             call = b.get("call") or ap.get("scheduledAtUtc")
             rec["booking"] = {
                 "tier": b.get("tier") or CALENDARS.get(ap.get("providerCalendarId"), "Other"),
@@ -194,6 +232,8 @@ def build_apps(events, by_ghl, ghl_status, now):
                 "outcome": b.get("outcome") or ("upcoming" if call and iso(call) > now else "no_eoc"),
             }
         out.append(rec)
+    if misses:  # a booking we can't find in GHL silently becomes a no-show: make it visible in the build log (critic #6)
+        print(f"WARNING: {misses} application booking(s) not found among GHL calendar events (counted without Close data)")
     return sorted(out, key=lambda r: r["completed"] or "")
 
 
@@ -210,11 +250,15 @@ def main():
         for e in ghl("/calendars/events", {"locationId": loc, "calendarId": cid, "startTime": lo, "endTime": hi}).get("events", []):
             if e.get("dateAdded") and iso(e["dateAdded"]) >= base:
                 events.append((e, tier))
+    latest_by_contact = {}
+    for e, _ in sorted(events, key=lambda x: x[0]["dateAdded"]):
+        latest_by_contact[e.get("contactId")] = e["id"]
+
     def one(item):
         e, tier = item
         booked, call = iso(e["dateAdded"]), iso(e["startTime"])
-        cancelled = (e.get("appointmentStatus") or "").lower() in ("cancelled", "invalid")
-        rid = hashlib.sha256(e["id"].encode()).hexdigest()[:12]  # GHL ids stay private: the page is public
+        cancelled = is_cancel(e.get("appointmentStatus"))
+        rid = rid_of(e["id"])  # GHL ids stay private
         old = prev.get(rid)
         if old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled")):
             return old, False, e["id"]
@@ -227,10 +271,14 @@ def main():
         if lead:
             L = lead[0]
             rec["in_close"] = True
-            rec["confirmed"] = (L.get(f"custom.{CONFIRMED_BOOKING}") == "Yes" or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED"
-                                or texted_yes(L["id"], booked, call))
+            # the lead's confirmation fields describe its LATEST booking only (critic #2): an older booking of the same
+            # person counts as confirmed only by a texted yes inside its own booking-to-call window
+            latest = latest_by_contact.get(e.get("contactId")) == e["id"]
+            rec["confirmed"] = bool((latest and (L.get(f"custom.{CONFIRMED_BOOKING}") == "Yes"
+                                                 or L.get(f"custom.{LNS_CONFIRMATION}") == "CONFIRMED"))
+                                    or texted_yes(L["id"], booked, call))
             if not cancelled:
-                rec["outcome"] = outcome_of(L["id"], call < now)
+                rec["outcome"] = outcome_of(L["id"], booked, call, now)
         elif not cancelled:
             rec["outcome"] = "not_in_close"
         return rec, True, e["id"]

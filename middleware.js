@@ -2,13 +2,32 @@
 // /api/roas (ROAS webhook, own secret) and /api/refresh (Vercel cron, own secret) stay reachable.
 export const config = { matcher: ["/((?!api/).*)"] };
 
-export default function middleware(request) {
+const enc = new TextEncoder();
+async function digest(s) {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+}
+// constant-time comparison of fixed-length digests (critic #9; the Edge runtime has no timingSafeEqual)
+async function same(a, b) {
+  const [x, y] = await Promise.all([digest(a), digest(b)]);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+export default async function middleware(request) {
   const want = process.env.DASHBOARD_PASSWORD;
   if (!want) return new Response("Dashboard password not configured", { status: 503 });
   const auth = request.headers.get("authorization") || "";
   if (auth.startsWith("Basic ")) {
-    const [, pass] = atob(auth.slice(6)).split(/:(.*)/s);
-    if (pass === want) return;
+    let decoded = "";
+    try {
+      // UTF-8 aware, so a password with non-ASCII characters also works
+      decoded = new TextDecoder().decode(Uint8Array.from(atob(auth.slice(6)), (c) => c.charCodeAt(0)));
+    } catch {
+      decoded = "";
+    }
+    const pass = decoded.includes(":") ? decoded.slice(decoded.indexOf(":") + 1) : "";
+    if (pass && (await same(pass, want))) return;
   }
-  return new Response("Password required", { status: 401, headers: { "WWW-Authenticate": 'Basic realm="Show Rate Ledger"' } });
+  return new Response("Password required", { status: 401, headers: { "WWW-Authenticate": 'Basic realm="Show Rate Ledger", charset="UTF-8"' } });
 }
