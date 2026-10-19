@@ -1,8 +1,9 @@
 """Build data/bookings.json for the LNS show-rate dashboard.
 
-One anonymous record per AI Launch Call booking made since the baseline (2026-10-11 13:56 UTC, the first personalised confirmation text): when it was
-booked, the tier (= the GHL calendar ROAS booked into), and what happened. No names, emails or phone numbers leave
-this script; the file is public.
+One record per AI Launch Call booking made since the baseline (2026-10-11 13:56 UTC, the first personalised
+confirmation text): when it was booked, the tier (= the GHL calendar ROAS booked into), and what happened, under a
+salted id. No lead names, emails or phone numbers leave this script. The morning report (build_report) adds team
+member names and Close lead links, so the file is protected by the site's password gate and never committed.
 
 Sources (read only):
   GHL    appointments on the AI Launch Call calendars -> booking time, tier, cancelled, call time
@@ -353,6 +354,106 @@ AIRTABLE_BASE = "appCWa6TV6p7EBarC"          # AI Partners - Sales
 CLOSER_EOC = "tblYsh3fxTpXuPdIW"             # "Full Closer Report Form" (Tier A/B)
 SETTER_EOC = "tblaoMsiE3FSkHjQt"             # "Triage Calls EOC Form" (Tier C, setters)
 FORWARD_FROM = "2026-10-19T04:00:00Z"   # Monday Oct 19, 00:00 ET: first week of the SalesKick-style tracking
+ET = zoneinfo.ZoneInfo("America/New_York")
+REPORT_CALENDARS = (("LDm54ejvyPsAy4fZhCXz", "A"), ("siftFhrdGdv5kQ71jagu", "B"), ("jXdw3InfMs5xs1mV4dZv", "C"))
+FULL, NEARLY_FULL = 0, 2   # open slots tomorrow: red "hand to setter" at 0, amber at 2 or fewer (a guess: Nabeel can set)
+
+
+def build_report(events, by_ghl, lead_of, now):
+    """The morning sales report (Nabeel 2026-10-19), as of this build (early morning ET, daily):
+    unconfirmed  today's calls (ET) nobody has confirmed yet
+    capacity     open slots / calls still to come per calendar for today and the next 2 days (GHL free-slots: calendar
+                 blocks and double-booking are already in it). A closer calendar is "full" (red, hand to setter) with
+                 no open slot tomorrow, "nearly_full" (amber) at 2 or fewer, "closed" when tomorrow has neither open
+                 slots nor calls (no working hours: not a capacity problem). When full, the hand-over candidates are
+                 the LATER-booked call(s) in each closer's slot holding more than one call (the double-booking itself).
+    missing_eoc  yesterday's calls (ET) with no EOC, or a blank one: closer for A/B, setter for C (follow-up calendars
+                 left out; a lead not in Close can't be checked; calls the team cancelled in GHL are left out)
+    People are team members (GHL users); a lead is only a Close link, never a name. Close lead ids make these rows
+    identifiable: the protection is the site's password gate (the file is never committed)."""
+    loc = env("GHL_LOCATION_ID")
+    try:
+        names = {u["id"]: (u.get("name") or f'{u.get("firstName", "")} {u.get("lastName", "")}').strip()
+                 for u in ghl("/users/", {"locationId": loc}).get("users", [])}
+    except (Exception, SystemExit) as ex:  # http() exits on a GHL error; the report never stops the build
+        print("WARNING report: GHL users not readable:", type(ex).__name__)
+        names = None
+    try:
+        per_slot = {c["id"]: c.get("appoinmentPerSlot") or c.get("appointmentPerSlot") or 1
+                    for c in ghl("/calendars/", {"locationId": loc}).get("calendars", [])}
+    except (Exception, SystemExit) as ex:
+        print("WARNING report: GHL calendars not readable:", type(ex).__name__)
+        per_slot = {}
+    today = now.astimezone(ET).date()
+    days = [today + dt.timedelta(days=i) for i in range(3)]
+    yesterday = today - dt.timedelta(days=1)
+    et_day = lambda e: iso(e["startTime"]).astimezone(ET).date()  # noqa: E731
+    who = lambda e: ("Unknown" if names is None else names.get(e.get("assignedUserId")) or "Unassigned")  # noqa: E731
+
+    def row(e, tier):
+        r, lid = by_ghl.get(e["id"]) or {}, lead_of.get(e["id"])
+        return {"call": iso(e["startTime"]).strftime("%Y-%m-%dT%H:%M:%SZ"), "tier": tier, "kind": r.get("kind"),
+                "who": who(e), "confirmed": bool(r.get("confirmed")),
+                "close": f"https://app.close.com/lead/{lid}/" if lid else None}
+
+    # live = not cancelled in GHL AND not cancelled by the lead through ROAS (GHL can still say booked: critic r6 #2)
+    live = [(e, t) for e, t in events if e.get("startTime") and not is_cancel(e.get("appointmentStatus"))
+            and (by_ghl.get(e["id"]) or {}).get("outcome") != "cancelled"]
+    unconfirmed = [row(e, t) for e, t in live if et_day(e) == today and not (by_ghl.get(e["id"]) or {}).get("confirmed")]
+
+    missing = []
+    for e, t in live:
+        r = by_ghl.get(e["id"]) or {}
+        if et_day(e) != yesterday or r.get("cancel_by") in EXCLUDED or e.get("calendarId") in FOLLOW_UP_CALENDARS:
+            continue
+        if r.get("outcome") == "not_in_close":   # the forms are keyed by Close lead id: nothing to match against
+            missing.append(dict(row(e, t), form="Setter EOC" if t == "C" else "Closer EOC", state="not in Close"))
+        elif not r.get("eoc") or r.get("eoc_blank"):   # "close" = the form reached Close's opportunity: it was filed
+            missing.append(dict(row(e, t), form="Setter EOC" if t == "C" else "Closer EOC",
+                                state="blank" if r.get("eoc_blank") else "not filed"))
+
+    capacity = []
+    for cid, tier in REPORT_CALENDARS:
+        mine = [(e, t) for e, t in live if e.get("calendarId") == cid]
+        cap = {"tier": tier, "who": sorted({who(e) for e, _ in mine}), "per_slot": per_slot.get(cid, 1),
+               "days": [], "error": None, "status": None, "hand_over": []}
+        try:   # fetch AND parse inside: one odd answer marks this calendar unreadable, never the build (critic r6 #1)
+            fs = ghl(f"/calendars/{cid}/free-slots", {"startDate": int(dt.datetime.combine(today, dt.time(), ET).timestamp() * 1000),
+                                                      "endDate": int(dt.datetime.combine(days[-1], dt.time(23, 59), ET).timestamp() * 1000),
+                                                      "timezone": "America/New_York"})
+            if not isinstance(fs, dict):
+                raise ValueError("free-slots answer is not an object")   # never read an odd answer as "full"
+            if not any(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(k)) for k in fs) and any(et_day(e) in days for e, _ in mine):
+                raise ValueError("free-slots answer has no days")       # calls ahead but no day at all: unknown shape
+            for d in days:
+                v = fs.get(d.isoformat())
+                slots = [s for s in ((v or {}).get("slots") or []) if iso(str(s)) > now]   # still bookable
+                ahead = [e for e, _ in mine if et_day(e) == d and iso(e["startTime"]) > now]   # calls still to come
+                cap["days"].append({"date": d.isoformat(), "open": len(slots), "booked": len(ahead)})
+        except (Exception, SystemExit) as ex:
+            cap["error"], cap["days"] = type(ex).__name__, [{"date": d.isoformat(), "open": None, "booked": None} for d in days]
+            print(f"WARNING report: free slots for Tier {tier} not readable:", cap["error"])
+        if not cap["error"] and tier != "C":
+            tm = cap["days"][1]
+            cap["status"] = ("closed" if tm["open"] == 0 and tm["booked"] == 0 else "full" if tm["open"] <= FULL
+                             else "nearly_full" if tm["open"] <= NEARLY_FULL else "ok")
+        if cap["status"] == "full":
+            by_slot = collections.defaultdict(list)
+            for e, t in mine:
+                if et_day(e) == days[1]:
+                    by_slot[(e.get("assignedUserId") or "", iso(e["startTime"]))].append((e, t))
+            for _, calls in sorted(by_slot.items()):
+                calls.sort(key=lambda x: x[0].get("dateAdded") or "")
+                cap["hand_over"] += [row(e, t) for e, t in calls[1:]]   # the first booking keeps the closer
+        capacity.append(cap)
+    print(f"report: {len(unconfirmed)} unconfirmed today, {len(missing)} missing EOCs yesterday, capacity "
+          + ", ".join(f'{c["tier"]} {c["status"] or c["error"] or "-"}' for c in capacity))
+    return {"as_of": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "today": today.isoformat(), "yesterday": yesterday.isoformat(),
+            "thresholds": {"full": FULL, "nearly_full": NEARLY_FULL},
+            "unconfirmed": sorted(unconfirmed, key=lambda r: r["call"]), "missing_eoc": sorted(missing, key=lambda r: r["call"]),
+            "capacity": capacity}
+
+
 ROAS_EVENTS = os.environ.get("ROAS_EVENTS_OUT") or os.path.join(__import__("tempfile").gettempdir(), "roas_events.json")
 
 
@@ -444,6 +545,7 @@ def build_apps(events, by_ghl, ghl_status, now):
                            else "excluded" if b.get("cancel_by") in EXCLUDED
                            else "self" if cancelled or b.get("outcome") == "cancelled" else None),
                 "eoc": b.get("eoc"),
+                "eoc_blank": bool(b.get("eoc_blank")),   # a blank form isn't a filed EOC (section 05)
                 "confirmed": bool(b.get("confirmed")),
                 "outcome": b.get("outcome") or ("upcoming" if call and iso(call) > now else "no_eoc"),
             }
@@ -496,7 +598,7 @@ def main():
         cancelled = is_cancel(e.get("appointmentStatus"))
         rid = rid_of(e["id"])  # GHL ids stay private
         old = prev.get(rid)
-        settled = old and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled"))
+        settled = old and not old.get("eoc_blank") and (old["outcome"] in ("showed", "no_show") or (cancelled and old["outcome"] == "cancelled"))
         if settled and old.get("kind"):
             return old, False, e["id"], None
         rec = {"id": rid, "booked": booked.strftime("%Y-%m-%dT%H:%M:%SZ"), "call": call.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -520,6 +622,7 @@ def main():
             form = eoc_for(eocs, L["id"], booked, call, next_call.get(e["id"]), tier, prev_call.get(e["id"])) if call < now else None
             if form:  # the EOC form itself is the truth (Airtable): Closer EOC for A/B, Setter (triage) EOC for C
                 _, rec["eoc"], out, by = form
+                rec["eoc_blank"] = out == "blank"   # filed but "Showed?" left empty: incomplete (morning report)
                 if out == "showed":   # the form says the call happened: that wins, even over a GHL cancel (critic #2)
                     rec["outcome"], rec["cancel_by"] = "showed", None
                 elif out == "excluded":
@@ -588,9 +691,14 @@ def main():
     print("booking types:", str(dict(collections.Counter(r.get("kind") for r in out)))
           + (f" ({no_lead} typed without a Close lead: GHL history only)" if no_lead else ""))
     apps = build_apps(roas, by_ghl, ghl_status, now)
+    try:   # the report never stops the daily build (critic r6 #1): the page hides the section without it
+        report = build_report(events, by_ghl, lead_of, now)
+    except Exception as ex:  # noqa: BLE001
+        print("WARNING report failed:", type(ex).__name__, str(ex)[:200])
+        report = None
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "baseline": BASELINE, "lns_live": LNS_LIVE,
-               "forward_from": FORWARD_FROM, "bookings": out, "apps": apps}, open(OUT, "w", encoding="utf8"), indent=1)
+               "forward_from": FORWARD_FROM, "bookings": out, "apps": apps, "report": report}, open(OUT, "w", encoding="utf8"), indent=1)
     print(f"{len(out)} bookings ({asked} refreshed, {len(out) - asked} settled and reused), {len(apps)} ROAS applications -> {OUT}")
 
 

@@ -1,4 +1,4 @@
-// Daily Vercel Cron (vercel.json, 11:00 UTC = 7am ET): triggers a fresh deployment, whose build reads GHL + Close
+// Daily Vercel Cron (vercel.json, 11:00 UTC = 7am EDT / 6am EST): triggers a fresh deployment, whose build reads GHL + Close
 // again and writes new numbers. Only Vercel's cron can call it: it sends "Authorization: Bearer <CRON_SECRET>".
 import { sameSecret } from "./roas.js";
 
