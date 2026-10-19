@@ -335,6 +335,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
     const n = dayNum(localParts(b.call, tz)) - dayNum(localParts(b.booked, tz));
     return n <= 0 ? "Same day" : n === 1 ? "Next day" : n === 2 ? "2 days ahead" : n <= 6 ? "3 to 6 days ahead" : "A week or more ahead";
   };
+  const LENGTHS = ["0-10 characters", "11-20 characters", "21-50 characters", "50+ characters"];  // typed answers (api/roas.js)
   const ORDER = {
     "How far ahead it was booked": ["Same day", "Next day", "2 days ahead", "3 to 6 days ahead", "A week or more ahead"],
     "Call time (lead's local time)": ["Morning (before 12pm)", "Afternoon (12-5pm)", "Evening (after 5pm)"],
@@ -386,6 +387,7 @@ footer { border-top: 1px solid var(--ink); margin-top: 56px; padding-top: 18px; 
       const s = state.sorts[title];
       if (s) list.sort((x, y) => ((y[s.key] ?? -1) - (x[s.key] ?? -1)) * s.dir);
       else if (ORDER[title]) list.sort((x, y) => ORDER[title].indexOf(x.k) - ORDER[title].indexOf(y.k));
+      else if (list.every((r) => LENGTHS.includes(r.k))) list.sort((x, y) => LENGTHS.indexOf(x.k) - LENGTHS.indexOf(y.k));
       else list.sort((x, y) => y.apps - x.apps || String(x.k).localeCompare(String(y.k)));
       const scroll = el("div", { class: "tbl-scroll" }), table = el("table");
       const thead = el("thead"), hr = el("tr");

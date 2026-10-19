@@ -1,13 +1,24 @@
 // ROAS webhook receiver: one stored file per event (form completed, call booked / rescheduled / cancelled / confirmed).
 // Add in ROAS (both forms): https://<site>/api/roas?k=<ROAS_WEBHOOK_SECRET>
-// Personal data is stripped BEFORE storing: no name, email, phone, company, IP, device, free-text answers. What is
+// Personal data is stripped BEFORE storing: no name, email, phone, company, IP, device; typed answers keep only their
+// length bucket. What is
 // kept is what the dashboard groups by: answers to choice questions, score, qualification, tier ending, UTM, times.
 import { put } from "@vercel/blob";
 
-const PII_TYPES = new Set(["name", "email", "phone", "short_text", "long_text", "text", "textarea", "address", "url", "number"]);
+const PII_TYPES = new Set(["name", "email", "phone", "address", "url", "number"]);
+const TEXT_TYPES = new Set(["short_text", "long_text", "text", "textarea", "paragraph"]);
+
+// typed answers: only their LENGTH is kept (SalesKick-style "0-10 characters" rows), never the words
+export function lengthBucket(v) {
+  const n = String(v ?? "").trim().length;
+  return n <= 10 ? "0-10 characters" : n <= 20 ? "11-20 characters" : n <= 50 ? "21-50 characters" : "50+ characters";
+}
 
 function clean(answer) {
   if (!answer || PII_TYPES.has(answer.type)) return null;
+  if (TEXT_TYPES.has(answer.type)) {
+    return { elementId: answer.elementId, label: answer.label, type: answer.type, value: lengthBucket(answer.value), values: null, score: answer.score ?? null };
+  }
   const { elementId, label, type, value, values, score } = answer;
   return { elementId, label, type, value: value ?? null, values: values ?? null, score: score ?? null };
 }
