@@ -116,6 +116,14 @@ h1 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin: 0; line-
 .tbl-avail td.zero { color: var(--muted); }
 .tbl-avail td.unc { color: var(--warn-ink); font-weight: 600; }
 .hand-card .note { margin: 0 0 10px; }
+/* ---------- date range ---------- */
+.range { display: inline-flex; gap: 8px; align-items: center; font: 12px var(--mono); color: var(--ink-2); }
+@media (max-width: 760px) { #gPeriod { flex-wrap: wrap; } .range { flex: 1 0 100%; flex-wrap: wrap; } .range label { display: inline-flex; gap: 4px; align-items: center; } .range input { min-width: 0; max-width: 140px; } .seg { flex-wrap: wrap; } }
+.range input { font: 12px var(--mono); color: var(--ink); background: var(--surface); border: 1px solid var(--ring); border-radius: 6px; padding: 3px 6px; }
+/* ---------- names on hover (availability counts) ---------- */
+.cnt { all: unset; cursor: help; border-bottom: 1px dotted var(--axis); padding: 0 2px; }
+.cnt:focus-visible { outline: 2px solid var(--tier-b); outline-offset: 2px; }
+#tip { white-space: pre-line; max-height: 70vh; overflow: hidden; }
 /* ---------- tables ---------- */
 .tbl-scroll { overflow: auto; max-height: min(72vh, 720px); max-width: 100%; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
@@ -274,7 +282,9 @@ td a { color: var(--accent); text-underline-offset: 3px; }
             <button type="button" data-v="this" aria-pressed="true">This week</button>
             <button type="button" data-v="last" aria-pressed="false">Last week</button>
             <button type="button" data-v="all" aria-pressed="false">Since Oct 19</button>
+            <button type="button" data-v="custom" aria-pressed="false">Pick dates</button>
           </div>
+          <span class="range" id="fRange" hidden><label>From <input type="date" id="rFrom"></label><label>To <input type="date" id="rTo"></label></span>
         </div>
         <div class="fgroup" id="gTier"><span class="seg-label">Tier</span>
           <div class="seg" role="group" aria-label="Tier" id="fTier">
@@ -400,23 +410,23 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     overallRate: "Shows divided by counted calls, fresh bookings plus recoveries.",
     triage: "Tier C triage calls are setter calls with their own show rate, kept apart from the closer show rate.",
     kind: "Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying \"Closer Booking\"). Recovery: a closer call booked again after a no-show or a team cancellation. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this; until setters fill it in, setter-led and recovery are worked out from each lead's booking history.",
-    due: "Calls in this period whose time has already passed, sorted into Nabeel's booking types. Includes calls the lead cancelled or rescheduled (taken out in Counted). Calls still to come aren't included yet.",
+    due: "Calls in this period whose time has already passed, sorted into Nabeel's booking types. Includes calls the lead cancelled or rescheduled (taken out in Counted). A booking cancelled because the lead already had another booking counts as rescheduled. Calls still to come aren't included yet.",
     cancelLead: "Cancelled by the lead through the ROAS link, or marked \"client cancelled\" by the closer. Left out of the show rate.",
-    resched: "Rescheduled calls are left out of the show rate.",
-    counted: "Past calls minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
+    resched: "Rescheduled calls are left out of the show rate. Includes a duplicate: two bookings for the same lead made within a day, one of them cancelled while the other stays.",
+    counted: "Past calls minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in (unless it was a duplicate of another booking).",
     cancelRate: "Cancelled by the lead divided by past calls.",
     reschedRate: "Rescheduled divided by past calls.",
-    open: "Time slots still bookable on the calendar right now (from GHL, so blocks and double-booking are already counted).",
-    booked: "Calls booked on the calendar that day (not cancelled).",
+    open: "Calls that can still be booked that day: every time GHL still offers counts its free seats (the seats per time are shown under each calendar name: Tier A and B take 2 per slot, Tier C has 2 setters). Blocks on the calendar are already taken into account.",
+    bookedDay: "Calls booked on the calendar that day (not cancelled).",
     confirmedN: "Of the booked calls, how many leads confirmed: Anastasia marked CONFIRMED, Close \"Confirmed Booking\" = Yes, or the lead texted a clear yes.",
     unconfirmedN: "Booked calls nobody has confirmed yet: the no-show risks.",
-    status: "Based on tomorrow. Red: no open slot (closers: hand to a setter; options are also more calendar space, triple booking or another closer. Tier C: a sign to hire a setter). Amber: 2 or fewer open. Green: room. Grey: no hours that day.",
+    status: "Based on tomorrow. Red: no open spot (closers: hand to a setter; options are also more calendar space, triple booking or another closer. Tier C: a sign to hire a setter). Amber: 2 open times' worth or fewer (4 spots on a calendar with 2 seats per time). Green: room. Grey: no hours that day.",
     missingEoc: "Calls from the previous day with no EOC filed, or one filed blank. Calls the team cancelled in GHL aren't listed. From the morning build.",
     live: "Availability is checked live from GHL and Close when you open Today, then every 15 minutes while it's open (or press Refresh). If the live check fails, the morning build is shown.",
     handover: "Only when a closer has no open slot tomorrow. In each of that closer's slots holding more than one call, every booking after the first is the one to pass to a setter; the first booking stays with the closer.",
-    baseline: "Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only. Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically.",
+    baseline: "Where we started: the week after the first personalised confirmation text and before this tracking. Tier A and B only. Where the closer's EOC says the lead cancelled or the call was rescheduled, that call is left out. A duplicate booking (two made within a day, one cancelled) is left out too. Every other cancellation counts as a no-show, because older bookings don't record who cancelled. From Oct 19 a cancellation through the ROAS link is told apart automatically.",
     baseNoShow: "Includes cancellations and calls with no EOC filed.",
-    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Today's availability is live (checked when you open Today and every 15 minutes); everything else is rebuilt each morning (7am ET in summer time, 6am in winter). No lead names, emails or phone numbers are stored; the Today view shows team names and Close links, behind this password.",
+    sources: "Sources: ROAS applications, GHL calendar and availability, Airtable (Closer and Setter EOC), Close (confirmations). Today's availability is live (checked when you open Today and every 15 minutes); everything else is rebuilt each morning (7am ET in summer time, 6am in winter). No emails or phone numbers are stored; the Today view shows lead names, team names and Close links, behind this password.",
   };
   /* one shared tooltip: positioned in JS so a scrolling table never clips it; the text is also the button's accessible name */
   const tipEl = $("tip");
@@ -435,11 +445,11 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     const b = el("button", { type: "button", class: "info", "aria-label": `About ${label || "this"}` }, "i");
     b.dataset.tip = TIPS[key]; return b;
   }
-  document.addEventListener("mouseover", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) showTip(b); });
-  document.addEventListener("mouseout", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b && document.activeElement !== b) hideTip(); });
-  document.addEventListener("focusin", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) showTip(b); });
-  document.addEventListener("focusout", (e) => { if (e.target.closest && e.target.closest(".info")) hideTip(); });
-  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".info"); if (b) { tipBtn === b && !tipEl.hidden && document.activeElement !== b ? hideTip() : showTip(b); } else hideTip(); });
+  document.addEventListener("mouseover", (e) => { const b = e.target.closest && e.target.closest(".info, .cnt"); if (b) showTip(b); });
+  document.addEventListener("mouseout", (e) => { const b = e.target.closest && e.target.closest(".info, .cnt"); if (b && document.activeElement !== b) hideTip(); });
+  document.addEventListener("focusin", (e) => { const b = e.target.closest && e.target.closest(".info, .cnt"); if (b) showTip(b); });
+  document.addEventListener("focusout", (e) => { if (e.target.closest && e.target.closest(".info, .cnt")) hideTip(); });
+  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".info, .cnt"); if (b) { tipBtn === b && !tipEl.hidden && document.activeElement !== b ? hideTip() : showTip(b); } else hideTip(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
   addEventListener("scroll", () => { if (tipBtn && document.activeElement === tipBtn) showTip(tipBtn); else hideTip(); }, true);
   addEventListener("resize", hideTip);
@@ -468,8 +478,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
   };
   const dayNum = (p) => Date.UTC(p.y, p.m - 1, p.d) / 864e5;
   // UTC instant of 00:00 US Eastern on a calendar date, correct on both sides of a daylight-saving change
-  const etMidnight = (y, m, d) => {
-    const probe = new Date(Date.UTC(y, m - 1, d, 12));
+  const etOffset = (probe) => {   // ET's UTC offset in minutes at that instant
     let mins;
     try {
       const off = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" })
@@ -477,8 +486,14 @@ td a { color: var(--accent); text-underline-offset: 3px; }
       const mt = off.match(/([+-])(\d{2}):?(\d{2})/);
       mins = mt ? (mt[1] === "-" ? -1 : 1) * (+mt[2] * 60 + +mt[3]) : null;
     } catch { mins = null; }                                                         // older Safari / Chromium
-    if (mins == null) mins = (localParts(probe.toISOString(), "America/New_York").h - 12) * 60;   // ET hour at 12:00 UTC
-    return new Date(Date.UTC(y, m - 1, d) - mins * 60000);
+    if (mins == null) { const p = localParts(probe.toISOString(), "America/New_York"); mins = (p.h - probe.getUTCHours() + 24 + 12) % 24 * 60 - 12 * 60; }
+    return mins;
+  };
+  // the offset is read at the candidate midnight itself (a noon probe is wrong on the DST days, critic r12)
+  const etMidnight = (y, m, d) => {
+    const day = Date.UTC(y, m - 1, d);
+    const guess = day - etOffset(new Date(day + 12 * 3600e3)) * 60000;
+    return new Date(day - etOffset(new Date(guess)) * 60000);
   };
   // Monday 00:00 ET of the week containing `date`, shifted by `weeks`
   const etWeekStart = (date, weeks = 0) => {
@@ -523,6 +538,10 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     let from = fwd, to = new Date(8.64e15);
     if (state.period === "this") from = new Date(Math.max(fwd, etWeekStart(now)));
     if (state.period === "last") { to = etWeekStart(now); from = new Date(Math.max(fwd, etWeekStart(now, -1))); }
+    if (state.period === "custom" && state.range) {   // whole US Eastern days, both ends included
+      const [fy, fm, fd] = state.range.from.split("-").map(Number), [ty, tm, td] = state.range.to.split("-").map(Number);
+      from = new Date(Math.max(fwd, etMidnight(fy, fm, fd))); to = etMidnight(ty, tm, td + 1);
+    }
     let rows = (d.apps || []).filter((a) => a.completed && new Date(a.completed) >= from && new Date(a.completed) < to);
     if (state.tier !== "all") rows = rows.filter((a) => a.booking && a.booking.tier === state.tier);
     return { rows, now, from, end: to, to: to.getTime() > 8e15 ? now : to };
@@ -823,12 +842,12 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     const c0 = th("Calendar"); c0.rowSpan = 2; const s0 = th("Status", "status"); s0.rowSpan = 2; s0.style.textAlign = "left";
     h1.append(c0, s0);
     days.forEach((d, i) => { const g = el("th", { scope: "colgroup", colspan: "4", class: "grp" }, dayName(d, i)); h1.appendChild(g);
-      [["Open", "open"], ["Booked", "booked"], ["Confirmed", "confirmedN"], ["Unconfirmed", "unconfirmedN"]].forEach(([lab, tk], k) => h2.appendChild(th(lab, i === 0 ? tk : null, k === 0 ? "g0" : ""))); });   // definitions once, on the first day
+      [["Open", "open"], ["Booked", "bookedDay"], ["Confirmed", "confirmedN"], ["Unconfirmed", "unconfirmedN"]].forEach(([lab, tk], k) => h2.appendChild(th(lab, i === 0 ? tk : null, k === 0 ? "g0" : ""))); });   // definitions once, on the first day
     thead.append(h1, h2);
     const tb = el("tbody");
     for (const c of A.capacity) {
       const tr = el("tr"), first = tierCell(c.tier);
-      first.appendChild(el("div", { class: "cell-sub" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + (c.per_slot > 1 ? ` · ${c.per_slot} per slot` : "")));
+      first.appendChild(el("div", { class: "cell-sub" }, (c.tier === "C" ? "setters · " : "") + c.who.join(", ") + ((c.seats || c.per_slot) > 1 ? ` · ${c.seats || c.per_slot} per time` : "")));
       tr.appendChild(first);
       const st = el("td", { style: "text-align:left" });
       if (c.error) st.appendChild(el("span", { class: "small-n" }, "couldn't read GHL"));
@@ -836,16 +855,27 @@ td a { color: var(--accent); text-underline-offset: 3px; }
       else st.appendChild(el("span", { class: "small-n" }, "–"));
       tr.appendChild(st);
       for (const d of c.days) {
+        const ppl = Array.isArray(d.people) ? d.people : null;
+        const line = (p) => `${etTime(p.t)}  ${p.name}${p.confirmed ? "" : " (unconfirmed)"}`;
+        const lists = [null, ppl, ppl && ppl.filter((p) => p.confirmed), ppl && ppl.filter((p) => !p.confirmed)];
         [d.open, d.booked, d.confirmed, d.unconfirmed].forEach((v, k) => {
           const cls = [k === 0 ? "g0" : "", v === 0 ? "zero" : "", k === 3 && v > 0 ? "unc" : ""].join(" ").trim();
-          tr.appendChild(el("td", cls ? { class: cls } : {}, c.error || v == null ? "–" : String(v)));
+          const td = el("td", cls ? { class: cls } : {});
+          if (c.error || v == null) td.textContent = "–";
+          else if (lists[k] && lists[k].length) {   // names behind the number (Nabeel, review part 2)
+            const b = el("button", { type: "button", class: "cnt", "aria-label": `${v}: ${lists[k].map((p) => p.name).join(", ")}` }, String(v));
+            b.dataset.tip = lists[k].map(line).join("\n"); td.appendChild(b);
+          } else td.textContent = String(v);
+          tr.appendChild(td);
         });
       }
       tb.appendChild(tr);
     }
     cap.append(thead, tb);
-    $("repCapSub").textContent = `Status from ${dayTwo}: red at ${A.thresholds.full} open slots, amber at ${A.thresholds.nearly_full} or fewer`;
+    const amb = [...new Set(A.capacity.filter((c) => c.amber_at != null).map((c) => c.amber_at))];
+    $("repCapSub").textContent = `Status from ${dayTwo}: red at ${A.thresholds.full} open, amber at ${amb.length ? amb.join(" / ") : A.thresholds.nearly_full} or fewer`;
 
+    if (tipBtn && !tipBtn.isConnected) hideTip();   // the table was redrawn under an open tooltip
     // hand to setter: its own card, only when a closer calendar is full tomorrow
     const hand = A.capacity.filter((c) => c.status === "full" && c.tier !== "C");
     $("repHandCard").hidden = !hand.length;
@@ -862,7 +892,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
       n.appendChild(span); box.appendChild(n);
       if (list.length) {
         const t = el("table", { class: "list" }), w = el("div", { class: "tbl-scroll", style: "border:1px solid var(--grid);border-radius:6px;margin-bottom:10px" }); w.appendChild(t); box.appendChild(w);
-        listTable(t, ["Time (ET)", "Tier", "Now with", ["Confirmed", "confirmedN"], "Lead"], list, (x) => [etTime(x.call), tierCell(x.tier), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
+        listTable(t, ["Time (ET)", "Prospect", "Tier", "Now with", ["Confirmed", "confirmedN"], "Lead"], list, (x) => [etTime(x.call), x.name || "Unknown", tierCell(x.tier), x.who, x.confirmed ? "Yes" : "No", closeLink(x.close)], "");
       }
     }
     // yesterday's missing EOCs, with a count per person
@@ -871,8 +901,8 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     for (const x of r.missing_eoc) per[x.who] = (per[x.who] || 0) + 1;
     $("repWho").hidden = !Object.keys(per).length;
     $("repWho").replaceChildren(...Object.entries(per).sort((a, b) => b[1] - a[1]).map(([who, n]) => { const s = el("span"); s.append(el("b", {}, String(n)), document.createTextNode(` ${who}`)); return s; }));
-    listTable($("repEoc"), ["Time (ET)", "Tier", "Form", "Who files it", "State", "Lead"], r.missing_eoc,
-      (x) => [etTime(x.call), tierCell(x.tier), x.form, x.who, x.state === "blank" ? "Filed blank" : x.state === "not in Close" ? "Can't check: not in Close" : "Not filed", closeLink(x.close)], stale ? `Every call on ${etDay(r.yesterday)} has its EOC.` : "Every call yesterday has its EOC.");
+    listTable($("repEoc"), ["Time (ET)", "Prospect", "Tier", "Form", "Who files it", "State", "Lead"], r.missing_eoc,
+      (x) => [etTime(x.call), x.name || "Unknown", tierCell(x.tier), x.form, x.who, x.state === "blank" ? "Filed blank" : x.state === "not in Close" ? "Can't check: not in Close" : "Not filed", closeLink(x.close)], stale ? `Every call on ${etDay(r.yesterday)} has its EOC.` : "Every call yesterday has its EOC.");
   }
 
   /* ---------- showed calls by booking type (Nabeel's sheet), from the booking records, by call time ---------- */
@@ -1027,7 +1057,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     for (const s of document.querySelectorAll(".view[data-view]")) s.hidden = s.dataset.view !== v;
     for (const a of document.querySelectorAll(".nav a")) { if (a.dataset.view === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }
     $("viewTitle").textContent = cfg.title; $("viewSub").textContent = cfg.sub;
-    $("gPeriod").hidden = !cfg.period; $("gTier").hidden = !cfg.tier; $("scope").hidden = !cfg.period;
+    $("gPeriod").hidden = !cfg.period; $("gTier").hidden = !cfg.tier; $("scope").hidden = !cfg.period || state.period === "custom";
     $("filters").hidden = !cfg.period && !cfg.tier;
     document.title = `${cfg.title} · Show Rate Ledger`;
     hideTip();
@@ -1063,6 +1093,22 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     });
   }
   wire("fPeriod", "period"); wire("fTier", "tier");
+  const etYmd = (date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(date);
+  function setupRange() {
+    const lo = etYmd(new Date(state.data.forward_from)), hi = etYmd(new Date());
+    state.range = state.range || { from: lo, to: hi };
+    for (const [id, k] of [["rFrom", "from"], ["rTo", "to"]]) {
+      const inp = $(id); inp.min = lo; inp.max = hi; inp.value = state.range[k];
+      inp.onchange = () => {
+        if (!inp.value) { inp.value = state.range[k]; return; }
+        state.range[k] = inp.value;
+        if (state.range.from > state.range.to) { const o = k === "from" ? "to" : "from"; state.range[o] = inp.value; $(o === "to" ? "rTo" : "rFrom").value = inp.value; }
+        render();
+      };
+    }
+  }
+  // the date boxes say the range already, so the "Oct 19 - Oct 20" text hides while they are open (keeps the bar on one line)
+  $("fPeriod").addEventListener("click", () => { $("fRange").hidden = state.period !== "custom"; $("scope").hidden = state.period === "custom" || !VIEWS[state.view].period; if (state.data) setupRange(); });
   $("liveBtn").addEventListener("click", loadLive);
   // Today keeps itself fresh: a live check on opening it, then every 15 minutes while it is open and visible (Nabeel; fewer calls on shared GHL/Close keys)
   setInterval(() => { if (state.view === "today" && !document.hidden) loadLive(); }, 15 * 60 * 1000);
@@ -1072,7 +1118,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
 
   fetch("data/bookings.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((d) => { state.data = d; render(); if (state.view === "today") loadLive(); })
+    .then((d) => { state.data = d; if (state.period === "custom") setupRange(); render(); if (state.view === "today") loadLive(); })
     .catch(() => { $("app").replaceChildren(el("p", { class: "card empty" }, "Couldn't load the data. If you opened this file directly, serve the folder instead (python -m http.server).")); });
 })();
 </script>

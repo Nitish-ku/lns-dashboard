@@ -2,8 +2,9 @@
 
 One record per AI Launch Call booking made since the baseline (2026-10-11 13:56 UTC, the first personalised
 confirmation text): when it was booked, the tier (= the GHL calendar ROAS booked into), and what happened, under a
-salted id. No lead names, emails or phone numbers leave this script. The morning report (build_report) adds team
-member names and Close lead links, so the file is protected by the site's password gate and never committed.
+salted id; no lead names, emails or phone numbers in those records. The Today report (build_report) adds lead names
+(Nabeel, Oct 20), team member names and Close lead links, so the file is protected by the site's password gate and
+never committed. No emails or phone numbers anywhere.
 
 Sources (read only):
   GHL    appointments on the AI Launch Call calendars -> booking time, tier, cancelled, call time
@@ -368,8 +369,14 @@ CLOSER_EOC = "tblYsh3fxTpXuPdIW"             # "Full Closer Report Form" (Tier A
 SETTER_EOC = "tblaoMsiE3FSkHjQt"             # "Triage Calls EOC Form" (Tier C, setters)
 FORWARD_FROM = "2026-10-19T04:00:00Z"   # Monday Oct 19, 00:00 ET: first week of the SalesKick-style tracking
 ET = zoneinfo.ZoneInfo("America/New_York")
+LEAD_NAMES = {}   # GHL appointment id -> lead name, filled while contacts are read; used only by the Today report
+
+
+def lead_name(contact):
+    n = " ".join(x for x in (contact.get("firstName"), contact.get("lastName")) if x).strip()
+    return n or (contact.get("contactName") or contact.get("name") or "").strip() or None
 REPORT_CALENDARS = (("LDm54ejvyPsAy4fZhCXz", "A"), ("siftFhrdGdv5kQ71jagu", "B"), ("jXdw3InfMs5xs1mV4dZv", "C"))
-FULL, NEARLY_FULL = 0, 2   # open slots tomorrow: red "hand to setter" at 0, amber at 2 or fewer (a guess: Nabeel can set)
+FULL, NEARLY_FULL = 0, 2   # open spots tomorrow: red at 0; amber at 2 open times' worth (2 x seats per time), a guess Nabeel can set
 
 
 def build_report(events, by_ghl, lead_of, now):
@@ -384,8 +391,8 @@ def build_report(events, by_ghl, lead_of, now):
                  the LATER-booked call(s) in each closer's slot holding more than one call (the double-booking itself).
     missing_eoc  yesterday's calls (ET) with no EOC, or a blank one: closer for A/B, setter for C (follow-up calendars
                  left out; a lead not in Close can't be checked; calls the team cancelled in GHL are left out)
-    People are team members (GHL users); a lead is only a Close link, never a name. Close lead ids make these rows
-    identifiable: the protection is the site's password gate (the file is never committed)."""
+    People are team members (GHL users); leads appear by name (Nabeel, Oct 20) with a Close link. That is why the
+    protection is the site's password gate (the file is never committed). Open = spots (seats per time x offered times)."""
     loc = env("GHL_LOCATION_ID")
     try:
         names = {u["id"]: (u.get("name") or f'{u.get("firstName", "")} {u.get("lastName", "")}').strip()
@@ -409,7 +416,7 @@ def build_report(events, by_ghl, lead_of, now):
     def row(e, tier):
         r, lid = by_ghl.get(e["id"]) or {}, lead_of.get(e["id"])
         return {"call": iso(e["startTime"]).strftime("%Y-%m-%dT%H:%M:%SZ"), "tier": tier, "kind": r.get("kind"),
-                "who": who(e), "confirmed": bool(r.get("confirmed")),
+                "who": who(e), "confirmed": bool(r.get("confirmed")), "name": LEAD_NAMES.get(e["id"]),
                 "close": f"https://app.close.com/lead/{lid}/" if lid else None}
 
     # live = not cancelled in GHL AND not cancelled by the lead through ROAS (GHL can still say booked: critic r6 #2)
@@ -431,8 +438,10 @@ def build_report(events, by_ghl, lead_of, now):
     for cid, tier in REPORT_CALENDARS:
         mine = [(e, t) for e, t in live if e.get("calendarId") == cid]
         team = sorted({names.get(u) or "Unknown" for u in members.get(cid, [])}) if names is not None else []
+        # seats per time = per-slot x team members (round robin: Tier C's two setters can each take a call)
+        seats = per_slot.get(cid, 1) * max(1, len(set(members.get(cid, []))))
         cap = {"tier": tier, "who": team or sorted({who(e) for e, _ in mine}), "per_slot": per_slot.get(cid, 1),
-               "days": [], "error": None, "status": None, "hand_over": []}
+               "seats": seats, "days": [], "error": None, "status": None, "hand_over": []}
         try:   # fetch AND parse inside: one odd answer marks this calendar unreadable, never the build (critic r6 #1)
             fs = ghl(f"/calendars/{cid}/free-slots", {"startDate": int(dt.datetime.combine(today, dt.time(), ET).timestamp() * 1000),
                                                       "endDate": int(dt.datetime.combine(days[-1], dt.time(23, 59), ET).timestamp() * 1000),
@@ -443,10 +452,19 @@ def build_report(events, by_ghl, lead_of, now):
                 raise ValueError("free-slots answer has no days")       # calls ahead but no day at all: unknown shape
             for d in days:
                 v = fs.get(d.isoformat())
-                slots = [s for s in ((v or {}).get("slots") or []) if iso(str(s)) > now]   # still bookable
+                slots = [iso(str(s)) for s in ((v or {}).get("slots") or []) if iso(str(s)) > now]   # still bookable
                 booked = [e for e, _ in mine if et_day(e) == d]   # every live call that day, held or still ahead
+                # open = calls that can still be booked: each time GHL offers counts its free seats (2 per slot on
+                # Tier A/B), at least 1 since GHL offers it (Nabeel, Oct 20: he counts spots, not times)
+                at = collections.Counter(iso(e["startTime"]) for e in booked)
+                slots = sorted(set(slots))
+                spots = sum(max(seats - at[t], 1) for t in slots)
+                if any(at[t] >= seats for t in slots):
+                    print(f"note report: Tier {tier} {d}: GHL offers a time we count as full (another member free, or a booking GHL doesn't count)")
                 conf = sum(1 for e in booked if (by_ghl.get(e["id"]) or {}).get("confirmed"))
-                cap["days"].append({"date": d.isoformat(), "open": len(slots), "booked": len(booked),
+                people = sorted(({"t": iso(e["startTime"]).strftime("%Y-%m-%dT%H:%M:%SZ"), "name": LEAD_NAMES.get(e["id"]) or "Unknown",
+                                  "confirmed": bool((by_ghl.get(e["id"]) or {}).get("confirmed"))} for e in booked), key=lambda p: p["t"])
+                cap["days"].append({"date": d.isoformat(), "open": spots, "open_times": len(slots), "booked": len(booked), "people": people,
                                     "confirmed": conf, "unconfirmed": len(booked) - conf})
         except (Exception, SystemExit) as ex:
             cap["error"], cap["days"] = type(ex).__name__, [{"date": d.isoformat(), "open": None, "booked": None,
@@ -455,7 +473,8 @@ def build_report(events, by_ghl, lead_of, now):
         if not cap["error"]:
             tm = cap["days"][1]
             cap["status"] = ("closed" if tm["open"] == 0 and tm["booked"] == 0 else "full" if tm["open"] <= FULL
-                             else "nearly_full" if tm["open"] <= NEARLY_FULL else "ok")
+                             else "nearly_full" if tm["open"] <= NEARLY_FULL * seats else "ok")
+            cap["amber_at"] = NEARLY_FULL * seats   # 2 open times' worth of seats
         if cap["status"] == "full" and tier != "C":
             by_slot = collections.defaultdict(list)
             for e, t in mine:
@@ -525,6 +544,7 @@ def _live_today(now):
         e, _ = item
         c = e.get("contactId")
         contact = ghl(f"/contacts/{c}", {}).get("contact", {}) if c else {}
+        LEAD_NAMES[e["id"]] = lead_name(contact)
         email = (contact.get("email") or "").strip().lower()
         lead = close("/lead/", {"query": f'email:"{email}"', "_limit": 1,
                                 "_fields": f"id,custom.{CONFIRMED_BOOKING},custom.{LNS_CONFIRMATION}"})["data"] if email else []
@@ -695,6 +715,7 @@ def main():
                "tier": tier, "confirmed": False, "outcome": "cancelled" if cancelled else "unknown", "in_close": False,
                "eoc": None, "cancel_by": None}
         contact = ghl(f"/contacts/{e['contactId']}", {}).get("contact", {}) if e.get("contactId") else {}
+        LEAD_NAMES[e["id"]] = lead_name(contact)
         email = (contact.get("email") or "").strip().lower()
         lead = close("/lead/", {"query": f'email:"{email}"', "_limit": 1,
                                 "_fields": f"id,custom.{CONFIRMED_BOOKING},custom.{LNS_CONFIRMATION}"})["data"] if email else []
@@ -750,6 +771,40 @@ def main():
         if (r and is_cancel(ap.get("status"), ev.get("event")) and r["outcome"] != "showed" and not r.get("eoc")
                 and when and iso(when) < iso(r["call"]) and iso(r["call"]) >= iso(FORWARD_FROM)):
             r["outcome"], r["cancel_by"] = "cancelled", "prospect"
+
+    # A cancelled booking the same lead had already replaced is a move or a cleaned-up duplicate, not a team no-show:
+    # another live booking of theirs (any calendar) was made before this one was cancelled (GHL's last update) and was
+    # for a call after this booking was made, and the cancel came before this call. Counted as "rescheduled" (left out
+    # of the show rate). Nabeel's Tier B, Oct 19: a lead booked B and C a minute apart; the B duplicate was cancelled.
+    for e, _ in events:   # re-derived every run: a reused local record never keeps an old mark
+        r = by_ghl.get(e["id"])
+        if r and r.get("cancel_by") == "rescheduled" and not r.get("eoc") and is_cancel(e.get("appointmentStatus")):
+            r["cancel_by"] = "team"
+    by_contact = collections.defaultdict(list)
+    for e, _ in older + events:
+        if e.get("contactId") and e.get("dateAdded") and e.get("startTime") and e.get("calendarId") not in FOLLOW_UP_CALENDARS:
+            by_contact[e["contactId"]].append(e)
+    replaced = 0
+    for e, _ in events:
+        r = by_ghl.get(e["id"])
+        if (not r or not e.get("contactId") or not e.get("dateUpdated") or not is_cancel(e.get("appointmentStatus"))
+                or r["outcome"] == "showed" or r.get("cancel_by") in EXCLUDED or r.get("eoc")):
+            continue   # an EOC form is the truth (a "Closer Cancelled Call" stays a no-show); no cancel time: leave it
+        cut, booked_at = iso(e["dateUpdated"]), iso(e["dateAdded"])   # GHL's last update ~ the cancel
+        if cut >= iso(e["startTime"]):
+            continue   # cancelled at or after its own call time: a real team cancel / no-show
+
+        def replacement(o):
+            if o["id"] == e["id"] or abs(iso(o["dateAdded"]) - booked_at) > dt.timedelta(hours=24):
+                return False   # a duplicate is booked close together; a booking days apart is a recovery, not this
+            if (by_ghl.get(o["id"]) or {}).get("outcome") == "cancelled" and (by_ghl.get(o["id"]) or {}).get("cancel_by") == "prospect":
+                return False   # the lead cancelled the other one too
+            still_live = not is_cancel(o.get("appointmentStatus")) or (o.get("dateUpdated") and iso(o["dateUpdated"]) > cut)
+            return still_live and iso(o["dateAdded"]) <= cut and iso(o["startTime"]) > cut   # live and ahead at the cancel
+        if any(replacement(o) for o in by_contact[e["contactId"]]):
+            r["outcome"], r["cancel_by"] = "cancelled", "rescheduled"
+            replaced += 1
+    print(f"{replaced} cancelled booking(s) the lead had already replaced: counted as rescheduled, not no-shows")
 
     # booking type per person, oldest first (a settled record keeps the type it was given)
     per_contact = collections.defaultdict(list)
