@@ -119,13 +119,13 @@ h1 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin: 0; line-
 /* ---------- tables ---------- */
 .tbl-scroll { overflow: auto; max-height: min(72vh, 720px); max-width: 100%; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
-th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--surface); }
+th, td { text-align: center; padding: 9px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--surface); }
 th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 150px; max-width: 300px; position: sticky; left: 0; z-index: 1; }
 thead th { white-space: normal; position: sticky; top: 0; z-index: 2; background: var(--head); font-weight: 600; font-size: 11.5px; color: var(--ink-2); border-bottom: 1px solid var(--axis); vertical-align: middle; padding-top: 8px; padding-bottom: 8px; }
 thead th:first-child { z-index: 3; }
 .tbl-avail thead tr + tr th { top: 33px; }   /* second header row (Open / Booked / ...) sticks under the day names */
 /* the sub-header row's first cell is "Open", not the Calendar column: no first-column width, stickiness or alignment */
-.tbl-avail thead tr + tr th:first-child { min-width: 0; max-width: none; position: sticky; left: auto; text-align: right; z-index: 2; }
+.tbl-avail thead tr + tr th:first-child { min-width: 0; max-width: none; position: sticky; left: auto; text-align: center; z-index: 2; }
 .tbl-avail td, .tbl-avail thead tr + tr th { min-width: 52px; padding-left: 8px; padding-right: 8px; }
 .tbl-avail td:first-child { min-width: 150px; }
 @media (max-width: 760px) { .tbl-avail td:first-child { min-width: 128px; } }
@@ -149,7 +149,7 @@ tr.total:hover td { background: var(--head); }
 .tbl-mid { min-width: 680px; }
 .list th, .list td { text-align: left; }
 td a { color: var(--accent); text-underline-offset: 3px; }
-.rate { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 128px; }
+.rate { display: inline-flex; align-items: center; gap: 8px; justify-content: center; min-width: 128px; }
 .rate i { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--meter-track); position: relative; overflow: hidden; }
 .rate i span { position: absolute; inset: 0 auto 0 0; background: var(--meter); border-radius: 3px; }
 .rate b { font-weight: 600; min-width: 42px; text-align: right; }
@@ -400,7 +400,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     overallRate: "Shows divided by counted calls, fresh bookings plus recoveries.",
     triage: "Tier C triage calls are setter calls with their own show rate, kept apart from the closer show rate.",
     kind: "Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying \"Closer Booking\"). Recovery: a closer call booked again after a no-show or a team cancellation. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this; until setters fill it in, setter-led and recovery are worked out from each lead's booking history.",
-    due: "Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types (still to come aren't counted). The tier filter doesn't apply to this view.",
+    due: "Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types (calls still to come aren't counted).",
     cancelLead: "Cancelled by the lead through the ROAS link, or marked \"client cancelled\" by the closer. Left out of the show rate.",
     resched: "Rescheduled calls are left out of the show rate.",
     counted: "Calls due minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
