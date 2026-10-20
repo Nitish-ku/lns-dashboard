@@ -400,12 +400,12 @@ td a { color: var(--accent); text-underline-offset: 3px; }
     overallRate: "Shows divided by counted calls, fresh bookings plus recoveries.",
     triage: "Tier C triage calls are setter calls with their own show rate, kept apart from the closer show rate.",
     kind: "Direct: ROAS booked a Tier A or B lead straight onto a closer calendar. Setter-led: a setter booked a Tier C or unbooked lead onto a closer calendar (booked by a person rather than ROAS, after a triage call, or a setter form saying \"Closer Booking\"). Recovery: a closer call booked again after a no-show or a team cancellation. Follow-up: a later call after one that showed, or any call on Aman's or Nabeel's follow-up link. The setter's Booking Type on the triage form overrides all of this; until setters fill it in, setter-led and recovery are worked out from each lead's booking history.",
-    due: "Every call on the calendar whose time falls in this period, sorted into Nabeel's booking types (calls still to come aren't counted).",
+    due: "Calls in this period whose time has already passed, sorted into Nabeel's booking types. Includes calls the lead cancelled or rescheduled (taken out in Counted). Calls still to come aren't included yet.",
     cancelLead: "Cancelled by the lead through the ROAS link, or marked \"client cancelled\" by the closer. Left out of the show rate.",
     resched: "Rescheduled calls are left out of the show rate.",
-    counted: "Calls due minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
-    cancelRate: "Cancelled by the lead divided by calls due.",
-    reschedRate: "Rescheduled divided by calls due.",
+    counted: "Past calls minus cancelled by the lead and rescheduled. The base for show and confirm rates. A call the team cancelled is a no-show and stays in.",
+    cancelRate: "Cancelled by the lead divided by past calls.",
+    reschedRate: "Rescheduled divided by past calls.",
     open: "Time slots still bookable on the calendar right now (from GHL, so blocks and double-booking are already counted).",
     booked: "Calls booked on the calendar that day (not cancelled).",
     confirmedN: "Of the booked calls, how many leads confirmed: Anastasia marked CONFIRMED, Close \"Confirmed Booking\" = Yes, or the lead texted a clear yes.",
@@ -930,7 +930,7 @@ td a { color: var(--accent); text-underline-offset: 3px; }
       kpi("Confirmation rate", fmtPct(pct(fresh.confirmed, fresh.counted)), `${fresh.confirmed} of ${fresh.counted} fresh calls confirmed`, "", "confirmed"));
     const t = $("kindTbl"); t.replaceChildren();
     const thead = el("thead"), hr = el("tr");
-    [["Booking type", "kind"], ["Calls due", "due"], ["Cancelled by lead", "cancelLead"], ["Rescheduled", "resched"], ["Counted", "counted"], ["Confirmed", "confirmed"], ["Shows", "shows"], ["Show rate", "showRate"], ["Confirm rate", "cRate"], ["Cancel rate", "cancelRate"], ["Reschedule rate", "reschedRate"]]
+    [["Booking type", "kind"], ["Past calls", "due"], ["Cancelled by lead", "cancelLead"], ["Rescheduled", "resched"], ["Counted", "counted"], ["Confirmed", "confirmed"], ["Shows", "shows"], ["Show rate", "showRate"], ["Confirm rate", "cRate"], ["Cancel rate", "cancelRate"], ["Reschedule rate", "reschedRate"]]
       .forEach(([h, tk], i) => hr.appendChild(th(h, tk, i === 7 ? "rule" : "")));
     thead.appendChild(hr);
     const tb = el("tbody");
