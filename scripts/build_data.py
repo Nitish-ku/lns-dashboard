@@ -591,25 +591,74 @@ def answer_value(a):
     return " + ".join(map(str, v)) if isinstance(v, list) and v else (str(a["value"]) if a.get("value") is not None else None)
 
 
+# ROAS short forms behind the not-booked emails' "Book your call" button (Tier B, Tier C). Id first: a rename must not
+# bring back empty applications (critic m5); the name also catches any later short form.
+EMAIL_BOOKING_FORM_IDS = {"5e7fd5e9-62da-4086-8801-bc8434c242c5", "5bb18e2b-b3fe-402f-a1d7-a6f745872996"}
+EMAIL_BOOKING_FORM = "aip email booking"
+
+
+def is_email_booking_form(ev):
+    f = ev.get("form") or {}
+    return f.get("id") in EMAIL_BOOKING_FORM_IDS or EMAIL_BOOKING_FORM in str(f.get("name") or "").lower()
+
+
+def add_appt(a, ev):
+    ap = ev.get("appointment")
+    if not (ap and ap.get("providerBookingId")):
+        return None
+    gid = ap["providerBookingId"]
+    a["appts"][gid] = ap  # latest event wins (rescheduled -> new time)
+    a["seen"][gid] = ev.get("createdAtUtc") or ev.get("receivedAt") or ""
+    if is_cancel(ap.get("status"), ev.get("event")):
+        a["prospect_cancel"].add(gid)
+    return gid
+
+
 def build_apps(events, by_ghl, ghl_status, now):
     """One anonymous record per completed ROAS application, joined to its booking (GHL) and outcome (Close).
     cancel: 'prospect' = ROAS sent a cancelled event (the lead used the cancel link); 'self' = cancelled in GHL with no
     ROAS cancel event (the team cancelled it; counted as a no-show, Nabeel 2026-10-19)."""
-    apps = {}
+    apps, short = {}, []
     for ev in sorted(events, key=lambda e: e.get("createdAtUtc") or e.get("receivedAt") or ""):
         sub = ev.get("submission") or {}
         if not sub.get("id") or sub.get("status") not in (None, "complete"):
             continue
-        a = apps.setdefault(sub["id"], {"sub": sub, "lead": ev.get("lead") or {}, "appts": {}, "seen": {}, "prospect_cancel": set()})
+        if is_email_booking_form(ev):
+            short.append(ev)   # never an application of its own: attached below to the person's real application
+            continue
+        a = apps.setdefault(sub["id"], {"sub": sub, "lead": ev.get("lead") or {}, "appts": {}, "seen": {}, "prospect_cancel": set(),
+                                        "email_appts": set()})
         if sub.get("answers"):
             a["sub"] = sub
-        ap = ev.get("appointment")
-        if ap and ap.get("providerBookingId"):
-            gid = ap["providerBookingId"]
-            a["appts"][gid] = ap  # latest event wins (rescheduled -> new time)
-            a["seen"][gid] = ev.get("createdAtUtc") or ev.get("receivedAt") or ""
-            if is_cancel(ap.get("status"), ev.get("event")):
-                a["prospect_cancel"].add(gid)
+        if not a["lead"] and ev.get("lead"):
+            a["lead"] = ev["lead"]
+        add_appt(a, ev)
+    # Email short-form bookings ("AIP Email Booking - Tier B/C", the not-booked emails' booking link): attach the booking
+    # to the latest real application of the same ROAS lead (ROAS keeps one lead id per person). No match -> not counted
+    # as an application at all; the booking itself still counts in the booking stats (GHL calendars).
+    by_lead = collections.defaultdict(list)
+    for sid, a in apps.items():
+        lid = (a["lead"] or {}).get("id")
+        if lid:
+            by_lead[lid].append((a["sub"].get("completedAtUtc") or a["sub"].get("startedAtUtc") or "", sid))
+    unmatched, pinned = 0, {}   # pinned: short submission -> application, so one booking never splits over two (critic m1)
+    for ev in short:
+        if not (ev.get("appointment") or {}).get("providerBookingId"):
+            continue   # the short form's own completed_lead: nothing to attach
+        key = ev["submission"]["id"]
+        if key not in pinned:
+            lid = (ev.get("lead") or {}).get("id")
+            when = ev.get("createdAtUtc") or ev.get("receivedAt") or ""
+            cands = sorted(c for c in by_lead.get(lid, []) if c[0] <= when) if lid else []
+            # an application before FORWARD_FROM is not reported, so attaching to it would lose the booking silently
+            pinned[key] = cands[-1][1] if cands and cands[-1][0] and iso(cands[-1][0]) >= iso(FORWARD_FROM) else None
+        if not pinned[key]:
+            unmatched += 1
+            continue
+        a = apps[pinned[key]]
+        a["email_appts"].add(add_appt(a, ev))
+    if unmatched:
+        print(f"WARNING: {unmatched} email short-form booking event(s) matched no earlier application (not counted as applications)")
     out, misses = [], 0
     for sid, a in apps.items():
         sub = a["sub"]
@@ -659,6 +708,8 @@ def build_apps(events, by_ghl, ghl_status, now):
                 "confirmed": bool(b.get("confirmed")),
                 "outcome": b.get("outcome") or ("upcoming" if call and iso(call) > now else "no_eoc"),
             }
+            if gid in a["email_appts"]:
+                rec["booking"]["source"] = "email"   # booked through a not-booked email's short form
         out.append(rec)
     if misses:  # a booking we can't find in GHL silently becomes a no-show: make it visible in the build log (critic #6)
         print(f"WARNING: {misses} application booking(s) not found among GHL calendar events (counted without Close data)")
